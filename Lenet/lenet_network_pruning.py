@@ -32,7 +32,7 @@ arguments.add_argument("--early_stopping", default=500, type=int)
 arguments.add_argument("--batch_size", default=105, type=int)
 arguments.add_argument("--trainval_perc", default=0.8, type=float)
 
-arguments.add_argument("--resume", default=False)
+arguments.add_argument("--resume", default=True)
 arguments.add_argument("--prune_bool", default=False)
 arguments.add_argument("--retrain", default=False)
 
@@ -209,26 +209,22 @@ def train(thresh=[-1,-1,-1,-1]):
             entry[2] = 1
             best_model = net.state_dict()
             best_optim = optimizer.state_dict()
+
             if save:
                 if retrain:
                     if best_accuracy > save_accuracy:
-                        torch.save({'model_state_dict': best_model, 'optimizer_state_dict': best_optim}, "%s_retrained_epo_%d_prunedto_%d_%d_%d_%d_acc_%.2f" % (
-                        path, epoch, thresh[0], thresh[1], thresh[2], thresh[3], best_accuracy))
+                        torch.save({'model_state_dict': best_model, 'optimizer_state_dict': best_optim},
+                                   f"{path_checkpoint_save_retrain}_retrained_epo_{epoch}_prunedto_{thresh[0]}_{thresh[1]}_{thresh[2]}_{thresh[3]}_acc_{best_accuracy}")
+                        print("Saving checkpoint")
                 else:
                     if best_accuracy > save_accuracy:
-                        torch.save({'model_state_dict': best_model, 'optimizer_state_dict': best_optim}, "%s_trainval%.1f_epo%d_acc%.2f" % (
-                            dataset, trainval_perc,epoch, best_accuracy))
+                        torch.save({'model_state_dict': best_model, 'optimizer_state_dict': best_optim},
+                                   f"{path_checkpoint_save_scratch}/{dataset}_trainval_{args.trainval_perc}_epo_{epoch}_acc_{best_accuracy}")
+                        print("Saving checkpoint")
 
             entry[0] = accuracy;
             entry[1] = loss
-            if write_training:
-                with open(filename, "a+") as file:
-                    file.write("\n Epoch: %d\n" % epoch)
-                    file.write(",".join(map(str, entry)) + "\n")
-                    if (accuracy > 98.9):
-                        file.write("Yes\n")
-                    elif (accuracy > 98.8):
-                        file.write("Ok\n")
+
 
     print(loss.item())
     print("Final: " + str(best_accuracy))
