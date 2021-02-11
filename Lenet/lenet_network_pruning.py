@@ -34,7 +34,7 @@ arguments.add_argument("--trainval_perc", default=0.8, type=float)
 
 arguments.add_argument("--resume", default=True)
 arguments.add_argument("--prune_bool", default=False)
-arguments.add_argument("--retrain", default=False)
+arguments.add_argument("--retrain", default=True)
 
 arguments.add_argument("--path_checkpoint_load")
 arguments.add_argument("--path_checkpoint_save", default="checkpoint")
@@ -144,7 +144,7 @@ def load_model(path_checkpoint_load):
 # EVALUATE
 
 def evaluate():
-    # print('Prediction when network is forced to predict')
+    print(f'\nEvaluating model on {evaluation} dataset')
     net.eval()
     correct = 0
     total = 0
@@ -194,8 +194,10 @@ def train(thresh=[-1,-1,-1,-1]):
             optimizer.step()
             # net.c1.weight.data[1] = 0  # instead of hook
             # net.c1.bias.data[1] = 0  # instead of hook
+            # print(net.c1.weight.data[1])
+            # print(net.c1.weight.grad[1])
 
-        print(loss.item())
+        print(f"Loss: {loss.item()}")
         accuracy = evaluate()
         print("Epoch " + str(epoch) + " ended.")
 
@@ -213,13 +215,11 @@ def train(thresh=[-1,-1,-1,-1]):
             if save:
                 if retrain:
                     if best_accuracy > save_accuracy:
-                        torch.save({'model_state_dict': best_model, 'optimizer_state_dict': best_optim},
-                                   f"{path_checkpoint_save_retrain}_retrained_epo_{epoch}_prunedto_{thresh[0]}_{thresh[1]}_{thresh[2]}_{thresh[3]}_acc_{best_accuracy}")
+                        torch.save({'model_state_dict': best_model, 'optimizer_state_dict': best_optim}, f"{path_checkpoint_save_retrain}_retrained_epo_{epoch}_prunedto_{thresh[0]}_{thresh[1]}_{thresh[2]}_{thresh[3]}_acc_{best_accuracy}")
                         print("Saving checkpoint")
                 else:
                     if best_accuracy > save_accuracy:
-                        torch.save({'model_state_dict': best_model, 'optimizer_state_dict': best_optim},
-                                   f"{path_checkpoint_save_scratch}/{dataset}_trainval_{args.trainval_perc}_epo_{epoch}_acc_{best_accuracy}")
+                        torch.save({'model_state_dict': best_model, 'optimizer_state_dict': best_optim},f"{path_checkpoint_save_scratch}/{dataset}_trainval_{args.trainval_perc}_epo_{epoch}_acc_{best_accuracy}")
                         print("Saving checkpoint")
 
             entry[0] = accuracy;
@@ -268,10 +268,9 @@ def finetune():
 ####################################################3
 # get ranks
 
-def get_ranks(method):
-    #### GET RANKS
 
-
+def get_ranks(method, path_checkpoint):
+    print(f"Ranking method {method}")
 
     if method == 'random':
         combinationss = [np.random.permutation(nodesNum1), np.random.permutation(nodesNum2),
@@ -471,62 +470,50 @@ def threshold_prune_and_retrain(combinationss, thresh):
 
 
 #######################
+# SAVING MODEL
+# the models are saved in the savedirectory as the original model
+if dataset == "mnist":
+    save_accuracy = 98.0
+if dataset == "fashionmnist":
+    save_accuracy = 80.50
 
-#SAVING MODEL
-#the models are saved in the savedirectory as the original model
-if dataset=="mnist":
-    save_accuracy=98.6
-if dataset=="fashionmnist":
-    save_accuracy=89.50
+print(f"Checkpoint saving accuracy: {save_accuracy}")
 
-save=True
-#WRITING
-# the output text file will be saved also in the same directory as the original model
-write_training=False
-#################################
+save = True
 
-resume=args.resume
-prune_bool=args.prune_bool
-retrain=args.retrain
+resume = args.resume
+prune_bool = args.prune_bool
+retrain = args.retrain
 
-
-##############################
-
-file_write=False
-comp_combinations=False
-
-#################################3################
-################################################
-
+#######
 
 
 if resume:
     net, path_checkpoint_load_ret = load_model(args.path_checkpoint_load)
     acc = evaluate()
-    #if comp_combinations:
-    #    compute_combinations_lenet(False, net, evaluate, dataset, "zeroing") #can be "additive noise instead of zeroing
-
-    methods=[args.method]
 
     if prune_bool:
 
-        pruned_arch_layer=[int(n) for n in args.arch.split(",")]
-        pruned_arch={}
-        pruned_arch['c1']=pruned_arch_layer[0]; pruned_arch['c3']=pruned_arch_layer[1]; pruned_arch['c5']=pruned_arch_layer[2];pruned_arch['f6']=pruned_arch_layer[3];
+        # parse number of channels to prune at each layer
+        pruned_arch_layer = [int(n) for n in args.arch.split(",")]
+        pruned_arch = {}
+        pruned_arch['c1'] = pruned_arch_layer[0];
+        pruned_arch['c3'] = pruned_arch_layer[1];
+        pruned_arch['c5'] = pruned_arch_layer[2];
+        pruned_arch['f6'] = pruned_arch_layer[3];
 
-        if 1:
-            accs={}
-            for method in methods:
-                print("\n\n %s \n" % method)
-                combinationss = get_ranks(method); print(combinationss)
-                acc=threshold_prune_and_retrain(combinationss, [pruned_arch['c1'], pruned_arch['c3'], pruned_arch['c5'], pruned_arch['f6']])
-                accs[method]=acc
-                #prune(False, i1, i2, i3, i4, write, save)
+        accs = {}
+        methods = [args.method]
+        for method in methods:
+            print("\n\n %s \n" % method)
+            combinationss = get_ranks(method, path_checkpoint_load_ret);
+            print(combinationss)
+            acc = threshold_prune_and_retrain(combinationss, [pruned_arch['c1'], pruned_arch['c3'], pruned_arch['c5'],
+                                                              pruned_arch['f6']])
+            accs[method] = acc
 
-            print("\n*********************************\n\n")
-
-if resume==False and prune_bool==False and retrain==False:
+if resume == False and prune_bool == False and retrain == False:
+    print("\nTraining from scratch\n")
     train()
-
 
 print("\n\nEND")
