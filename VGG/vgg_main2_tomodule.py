@@ -10,38 +10,22 @@
 
 from __future__ import print_function
 
-import torch
-import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
-
 import torchvision
 import torchvision.transforms as transforms
-
 import os
-import argparse
-
 import sys
 import socket
-
 import numpy as np
 from torch.nn.parameter import Parameter
 import torch.nn.functional as f
-import logging
 import matplotlib.pyplot as plt
 import magnitude_rank
-import argparse
 from vgg_computeComb2 import compute_combinations
 from vgg_computeComb2 import test_val
 import argparse
-from itertools import product
-
-# file_dir = os.path.dirname("utlis.p")
-# sys.path.append(file_dir)
-
 # from models import *
-
 # from utils import progress_bar
 import torch
 import torch.nn as nn
@@ -121,10 +105,10 @@ else:
     path_switch = os.path.join(parent_path, "results_switch")
     path_main= parent_path
 
-print(cwd)
-print(sys.path)
+#print(cwd)
+#print(sys.path)
 
-print("newh2")
+
 sys.path.append(os.path.join(path_networktest, "external_codes/pytorch-cifar-master/models"))
 sys.path.append(path_compression)
 
@@ -139,20 +123,21 @@ parser.add_argument("--arch", default='25,25,65,80,201,158,159,460,450,490,470,4
 # ar.add_argument("-arch", default=[21,20,65,80,201,147,148,458,436,477,454,448,445,467,441])
 parser.add_argument('--layer', help="layer to prune", default="c1")
 parser.add_argument("--method", default='l2')
+#Dirchlet
 parser.add_argument("--switch_samps", default=100, type=int)
 parser.add_argument("--switch_epochs", default=1, type=int)
 parser.add_argument("--ranks_method", default='point')
-parser.add_argument("--resume", default=False)
+#general
+parser.add_argument("--resume", action='store_true')
 parser.add_argument("--prune_bool", default=False)
-parser.add_argument("--retrain_bool", default=False)
+parser.add_argument("--retrain_bool", action='store_true')
 parser.add_argument("--model", default="None")
 # parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
-# parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
 save_accuracy=91.0
 
 args = parser.parse_args()
 print(args.layer)
-print("aaa", args.arch)
+print("architecture for pruning: ", args.arch)
 
 
 
@@ -1132,15 +1117,15 @@ if prune_bool:
     # thresh=[5, 5, 10, 10, 20, 10, 20, 20, 40, 20, 20, 40, 40, 20, 80] #17 # 87.86. 71.44, 58.49, 57.21 (94.34)
     # thresh=[5, 5, 10, 10, 10, 10, 10, 20, 20, 20, 10, 10, 10, 10, 10] #~18 #0.95
 
-    if 1:
-        print('\n****************\n')
-        for method in [args.method]:
-            # for method in ['fisher']:
-            print('\n\n' + method + "\n")
-            thresh = [int(n) for n in args.arch.split(",")]
-            #[i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14, i15]
-            print(thresh)
-            prune_and_retrain(thresh)
+if retrain_bool or prune_bool:
+    print('\n****************\n')
+    for method in [args.method]:
+        # for method in ['fisher']:
+        print('\n\n' + method + "\n")
+        thresh = [int(n) for n in args.arch.split(",")]
+        #[i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14, i15]
+        print(thresh)
+        prune_and_retrain(thresh)
 
     # prune_and_retrain(thresh) #first argument is whether to trune, False only retraining
 
