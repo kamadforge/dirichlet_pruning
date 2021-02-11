@@ -321,39 +321,38 @@ def get_ranks(method, path_checkpoint):
         getranks_method = args.switch_comb
         switch_data={}; switch_data['combinationss'] = []; switch_data['switches']=[]
 
+        epochs_num = 1
+        path_switches = "../methods/switches/Lenet"
 
-        print("switch mean")
+    if getranks_method == 'train':
 
-        epochs_num = 3
-#        file_path=os.path.join(path_main, 'results_switch/results/switch_data_%s_9927_pointest_epochs_%i.npy' % (dataset, epochs_num))
+        for layer in ["c1", "c3", "c5", "f6"]:
+            print(f"\nLayer: {layer}")
+            best_accuracy, epoch, best_model, S = run_experiment_pointest(epochs_num, layer, 10, 20, 100, 25, path_checkpoint, args)
 
-        import os
-        if not os.path.exists("switches"):
-            os.makedirs("switches")
-        file_path='switches/switch_data_%s_9927_pointest_epochs_%i.npy' % (dataset, epochs_num)
+            print("Rank for switches from most important/largest to smallest after %s " % str(epochs_num))
+            print(S)
+            print("max: %.4f, min: %.4f" % (torch.max(S), torch.min(S)))
+            ranks_sorted = np.argsort(S.cpu().detach().numpy())[::-1]
+            print(",".join(map(str, ranks_sorted)))
+            switch_data['combinationss'].append(ranks_sorted)
+            switch_data['switches'].append(S.cpu().detach().numpy())
 
-        if getranks_method == 'train':
+        print(switch_data['combinationss'])
+        combinationss = switch_data['combinationss']
 
-            for layer in ["c1", "c3", "c5", "f6"]:
-                best_accuracy, epoch, best_model, S = run_experiment_pointest(epochs_num, layer, 10, 20, 100, 25, path)
-                print("Rank for switches from most important/largest to smallest after %s " % str(epochs_num))
-                print(S)
-                print("max: %.4f, min: %.4f" % (torch.max(S), torch.min(S)))
-                ranks_sorted = np.argsort(S.cpu().detach().numpy())[::-1]
-                print(",".join(map(str, ranks_sorted)))
-                switch_data['combinationss'].append(ranks_sorted)
-                switch_data['switches'].append(S.cpu().detach().numpy())
+        # save switches
+        if not os.path.exists(path_switches):
+            os.makedirs(path_switches)
+        file_path = os.path.join(path_switches, f"switches_{dataset}_{epochs_num}_{path_checkpoint[-5:]}.npy")
+        np.save(file_path, switch_data)
 
-            print('*' * 30)
-            print(switch_data['combinationss'])
-            combinationss=switch_data['combinationss']
-            np.save(file_path, switch_data)
-
-        elif getranks_method == 'load':
-            combinationss=list(np.load(file_path,  allow_pickle=True).item()['combinationss'])
-
-
-
+    elif getranks_method == 'load':
+        switches_files = os.listdir(path_switches)
+        for file in switches_files:
+            if (file[-9:-4] == path_checkpoint[-5:]):
+                path_switches_file = os.path.join(path_switches, file)
+                combinationss = list(np.load(path_switches_file, allow_pickle=True).item()['combinationss'])
 
     elif method == "switch_point_multiple":
         file_path=os.path.join(path_main, 'results_switch/results/combinations_multiple_9032.npy')
@@ -374,31 +373,24 @@ def get_ranks(method, path_checkpoint):
 # RETRAIN
 
 def threshold_prune_and_retrain(combinationss, thresh):
-
-
-    ##### THRESHOLD
-    # the ranks are sorted from best to worst
-    # thresh is what we keep, combinationss is what we discard
+    '''
+    PRUNE/ ZERO OUT THE WEIGHTS
+    the ranks are sorted from best to worst
+    thresh is what we keep, combinationss is what we discard
+    '''
 
     for i in range(len(combinationss)):
         combinationss[i] = torch.LongTensor(combinationss[i][thresh[i]:].copy())
 
-
-    #filename = "%s_retrained_paramsearch1.txt" % path
-    #
-    # if write:
-    #     with open(filename, "a+") as file:
-    #         file.write("\n\nprunedto:%d_%d_%d_%d\n\n" % (thresh[0], thresh[1], thresh[2], thresh[3]))
-    print("\n\nprunedto:%d_%d_%d_%d\n" % (thresh[0], thresh[1], thresh[2], thresh[3]))
+    print("Prunedto:%d_%d_%d_%d\n" % (thresh[0], thresh[1], thresh[2], thresh[3]))
 
     print("Channels pruned: ")
     print(combinationss)
-
-    #################################################################################################################3
-    ########## PRUNE/ ZERO OUT THE WEIGHTS
-
-    net.load_state_dict(torch.load(path, map_location=lambda storage, loc: storage)['model_state_dict'], strict=False)
-    #net.load_state_dict(torch.load(path, map_location=lambda storage, loc: storage), strict=False)
+    # #################################################################################################################3
+    # ########## PRUNE/ ZERO OUT THE WEIGHTS
+    #
+    # net.load_state_dict(torch.load(path, map_location=lambda storage, loc: storage)['model_state_dict'], strict=False)
+    # #net.load_state_dict(torch.load(path, map_location=lambda storage, loc: storage), strict=False)
 
     if prune_bool:
 
@@ -416,50 +408,30 @@ def threshold_prune_and_retrain(combinationss, thresh):
                 param.data[combinationss[it - 1]] = 0
             if ("bn" in name) and ("bias" in name):
                 param.data[combinationss[it - 1]] = 0
-
-
-
-        # net.c1.weight.data[combination]=0; net.c1.bias.data[combination] = 0
-        # net.c3.weight.data[combination2] = 0; net.c3.bias.data[combination2] = 0
-        # net.c5.weight.data[combination3] = 0;net.c5.bias.data[combination3] = 0
-        # net.f6.weight.data[combination4] = 0;net.f6.bias.data[combination4] = 0
-
         print("After pruning")
         acc=evaluate()
 
     ##################################################################### RETRAIN
 
-
     if retrain:
-        def gradi(module):
-            module[combinationss[0]]=0
-        net.c1.weight.register_hook(gradi)
-        net.c1.bias.register_hook(gradi)
-        net.bn1.weight.register_hook(gradi)
-        net.bn1.bias.register_hook(gradi)
+        def gradi_new(combs_num):
+            def hook(module):
+                module[combinationss[combs_num]] = 0
 
-        def gradi2(module):
-            module[combinationss[1]]=0
+            return hook
 
-        net.c3.weight.register_hook(gradi2)
-        net.c3.bias.register_hook(gradi2)
-        net.bn2.weight.register_hook(gradi2)
-        net.bn2.bias.register_hook(gradi2)
-
-        def gradi3(module):
-            module[combinationss[2]] = 0
-            # print(module[1])
-
-        net.c5.weight.register_hook(gradi3)
-        net.c5.bias.register_hook(gradi3)
-
-        def gradi4(module):
-            module[combinationss[3]] = 0
-            # print(module[1])
-
-        net.f6.weight.register_hook(gradi4)
-        net.f6.bias.register_hook(gradi4)
-
+        net.c1.weight.register_hook(gradi_new(0))
+        net.c1.bias.register_hook(gradi_new(0))
+        net.bn1.weight.register_hook(gradi_new(0))
+        net.bn1.bias.register_hook(gradi_new(0))
+        net.c3.weight.register_hook(gradi_new(1))
+        net.c3.bias.register_hook(gradi_new(1))
+        net.bn2.weight.register_hook(gradi_new(1))
+        net.bn2.bias.register_hook(gradi_new(1))
+        net.c5.weight.register_hook(gradi_new(2))
+        net.c5.bias.register_hook(gradi_new(2))
+        net.f6.weight.register_hook(gradi_new(3))
+        net.f6.bias.register_hook(gradi_new(3))
 
         print("Retraining")
 
