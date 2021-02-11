@@ -24,7 +24,7 @@ import argparse
 arguments=argparse.ArgumentParser()
 arguments.add_argument("--arch", default="7,10,40,20")
 arguments.add_argument("--folder")
-arguments.add_argument("--method", default="switch_point") #switch_itegral, swithc_point, fisher, l1, l2, random
+arguments.add_argument("--method", default="switch_integral") #switch_itegral, swithc_point, fisher, l1, l2, random
 arguments.add_argument("--switch_samps", default=150, type=int)
 arguments.add_argument("--switch_comb", default='train') #train, load
 arguments.add_argument("--dataset", default="mnist")
@@ -33,8 +33,8 @@ arguments.add_argument("--batch_size", default=105, type=int)
 arguments.add_argument("--trainval_perc", default=0.8, type=float)
 
 arguments.add_argument("--resume", default=True)
-arguments.add_argument("--prune_bool", default=False)
-arguments.add_argument("--retrain", default=True)
+arguments.add_argument("--prune_bool", default=True)
+arguments.add_argument("--retrain", default=False)
 
 arguments.add_argument("--path_checkpoint_load")
 arguments.add_argument("--path_checkpoint_save", default="checkpoint")
@@ -283,20 +283,16 @@ def get_ranks(method, path_checkpoint):
             fisher_rank=np.argsort(net.running_fisher[i].detach().cpu().numpy())[::-1]
             combinationss.append(fisher_rank)
 
-
     elif method=="switch_integral":
 
         #train or load
         getranks_method = args.switch_comb
         switch_data={}; switch_data['combinationss'] = []; switch_data['switches']=[]
         num_samps_for_switch=args.switch_samps
-
         print("integral evaluation")
         epochs_num = 3
         file_path=os.path.join(path_main, 'results_switch/results/switch_data_%s_9927_integral_samps_%s_epochs_%i.npy' % (dataset, str(num_samps_for_switch), epochs_num))
-
         if getranks_method=='train':
-
             for layer in ["c1", "c3", "c5", "f6"]:
                 best_accuracy, epoch, best_model, S= run_experiment_integral(epochs_num, layer, 10, 20, 100, 25, num_samps_for_switch, path)
                 print("Rank for switches from most important/largest to smallest after %s " %  str(epochs_num))
@@ -305,66 +301,49 @@ def get_ranks(method, path_checkpoint):
                 ranks_sorted = np.argsort(S.cpu().detach().numpy())[::-1]
                 print(",".join(map(str, ranks_sorted)))
                 switch_data['combinationss'].append(ranks_sorted); switch_data['switches'].append(S.cpu().detach().numpy())
-
-
-
             print('*'*30)
             print(switch_data['combinationss'])
             combinationss=switch_data['combinationss']
             np.save(file_path, switch_data)
-
         elif getranks_method=='load':
             combinationss=list(np.load(file_path,  allow_pickle=True).item()['combinationss'])
 
     elif method == "switch_point":
-
         getranks_method = args.switch_comb
         switch_data={}; switch_data['combinationss'] = []; switch_data['switches']=[]
-
         epochs_num = 1
         path_switches = "../methods/switches/Lenet"
-
-    if getranks_method == 'train':
-
-        for layer in ["c1", "c3", "c5", "f6"]:
-            print(f"\nLayer: {layer}")
-            best_accuracy, epoch, best_model, S = run_experiment_pointest(epochs_num, layer, 10, 20, 100, 25, path_checkpoint, args)
-
-            print("Rank for switches from most important/largest to smallest after %s " % str(epochs_num))
-            print(S)
-            print("max: %.4f, min: %.4f" % (torch.max(S), torch.min(S)))
-            ranks_sorted = np.argsort(S.cpu().detach().numpy())[::-1]
-            print(",".join(map(str, ranks_sorted)))
-            switch_data['combinationss'].append(ranks_sorted)
-            switch_data['switches'].append(S.cpu().detach().numpy())
-
-        print(switch_data['combinationss'])
-        combinationss = switch_data['combinationss']
-
-        # save switches
-        if not os.path.exists(path_switches):
-            os.makedirs(path_switches)
-        file_path = os.path.join(path_switches, f"switches_{dataset}_{epochs_num}_{path_checkpoint[-5:]}.npy")
-        np.save(file_path, switch_data)
-
-    elif getranks_method == 'load':
-        switches_files = os.listdir(path_switches)
-        for file in switches_files:
-            if (file[-9:-4] == path_checkpoint[-5:]):
-                path_switches_file = os.path.join(path_switches, file)
-                combinationss = list(np.load(path_switches_file, allow_pickle=True).item()['combinationss'])
+        if getranks_method == 'train':
+            for layer in ["c1", "c3", "c5", "f6"]:
+                print(f"\nLayer: {layer}")
+                best_accuracy, epoch, best_model, S = run_experiment_pointest(epochs_num, layer, 10, 20, 100, 25, path_checkpoint, args)
+                print("Rank for switches from most important/largest to smallest after %s " % str(epochs_num))
+                print(S)
+                print("max: %.4f, min: %.4f" % (torch.max(S), torch.min(S)))
+                ranks_sorted = np.argsort(S.cpu().detach().numpy())[::-1]
+                print(",".join(map(str, ranks_sorted)))
+                switch_data['combinationss'].append(ranks_sorted)
+                switch_data['switches'].append(S.cpu().detach().numpy())
+            print(switch_data['combinationss'])
+            combinationss = switch_data['combinationss']
+            # save switches
+            if not os.path.exists(path_switches):
+                os.makedirs(path_switches)
+            file_path = os.path.join(path_switches, f"switches_{dataset}_{epochs_num}_{path_checkpoint[-5:]}.npy")
+            np.save(file_path, switch_data)
+        elif getranks_method == 'load':
+            switches_files = os.listdir(path_switches)
+            for file in switches_files:
+                if (file[-9:-4] == path_checkpoint[-5:]):
+                    path_switches_file = os.path.join(path_switches, file)
+                    combinationss = list(np.load(path_switches_file, allow_pickle=True).item()['combinationss'])
 
     elif method == "switch_point_multiple":
         file_path=os.path.join(path_main, 'results_switch/results/combinations_multiple_9032.npy')
-
         combinationss =list(np.load(file_path,  allow_pickle=True))
 
-
     else:
-
         combinationss = magnitude_rank.get_ranks(method, net)
-
-
 
     return  combinationss
 
@@ -382,7 +361,7 @@ def threshold_prune_and_retrain(combinationss, thresh):
     for i in range(len(combinationss)):
         combinationss[i] = torch.LongTensor(combinationss[i][thresh[i]:].copy())
 
-    print("Prunedto:%d_%d_%d_%d\n" % (thresh[0], thresh[1], thresh[2], thresh[3]))
+    print("\n\nPrunedto:%d_%d_%d_%d\n" % (thresh[0], thresh[1], thresh[2], thresh[3]))
 
     print("Channels pruned: ")
     print(combinationss)
@@ -393,7 +372,6 @@ def threshold_prune_and_retrain(combinationss, thresh):
     # #net.load_state_dict(torch.load(path, map_location=lambda storage, loc: storage), strict=False)
 
     if prune_bool:
-
         it = 0
         for name, param in net.named_parameters():
             print(name)

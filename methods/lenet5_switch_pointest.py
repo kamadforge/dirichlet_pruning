@@ -64,8 +64,8 @@ class Lenet(nn.Module):
         phi = f.softplus(self.parameter)
         S = phi / torch.sum(phi)  # """directly use mean of Dir RV, which is {E} [X_{i}]={\frac {\alpha _{i}} {\sum _{k=1}^{K}\alpha _{k}}}}
         Sprime = S
-        print('*'*30)
-        print(S)
+        #print('*'*30)
+        #print(S)
 
         output=self.c1(x)
         if layer == 'c1':
