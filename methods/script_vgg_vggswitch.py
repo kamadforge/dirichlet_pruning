@@ -2,7 +2,7 @@ import subprocess
 import sys
 import argparse
 arguments=argparse.ArgumentParser()
-arguments.add_argument("--method", default="switch_point")
+arguments.add_argument("--method", default="switch_integral")
 arguments.add_argument("--switch_samps", default=2, type=int)
 arguments.add_argument("--epoch_num", default=1, type=int)
 args=arguments.parse_args()
@@ -26,11 +26,13 @@ if 'g0' in socket.gethostname() or 'p0' in socket.gethostname():
     #the cwd is where the sub file is so ranking/
     path_switch = os.path.join(cwd, "results_switch")
     path_main= cwd
+    print("path main", path_main)
 else:
     #the cwd is results_compression
     parent_path = os.path.abspath('..')
     path_switch = cwd
     path_main= parent_path
+    print("main dir", path_main)
 
 print("v4")
 
@@ -44,14 +46,21 @@ dataset='cifar'
 num_samps_for_switch=args.switch_samps
 method=args.method
 
-if method=="switch_point":
-    file_path=path_switch+'/results/switch_data_%s_point_epochs_%i.npy' % (dataset, epochs_num)
-elif method=="switch_integral":
-    file_path=path_switch+'/results/switch_data_%s_integral_samps_%s_epochs_%i.npy' % (dataset, str(num_samps_for_switch), epochs_num)
-    #file_path=os.path.join(path_main, 'results_switch/results/switch_data_%s_9032_integral_samps_%s_epochs_%i.npy' % (dataset, str(num_samps_for_switch), epochs_num))
 
+def switch_run(method, epochs_num, num_samps_for_switch=None):
 
-if 1:
+    if method=="switch_point":
+        dir_path = path_main+'/methods/switches/VGG/point'
+        os.makedirs(dir_path, exist_ok=True)
+        file_path=dir_path+'/switch_data_%s_point_epochs_%i.npy' % (dataset, epochs_num)
+    elif method=="switch_integral":
+        dir_path =  path_main + '/methods/switches/VGG/integral'
+        os.makedirs(dir_path, exist_ok=True)
+        file_path=dir_path + '/switch_data_%s_integral_samps_%s_epochs_%i.npy' % (dataset, str(num_samps_for_switch), epochs_num)
+        #file_path=os.path.join(path_main, 'results_switch/results/switch_data_%s_9032_integral_samps_%s_epochs_%i.npy' % (dataset, str(num_samps_for_switch), epochs_num))
+
+    print("save switches path: ", file_path)
+
     if 1:
         switch_data={}; switch_data['combinationss'] = []; switch_data['switches']=[]
         for i in range(1,15):
@@ -63,7 +72,6 @@ if 1:
             elif method=="switch_integral":
                 ranks, switches=main_integral(switch_layer, epochs_num, num_samps_for_switch)
 
-
             print("\n", '*'*30, "\nThe resulting ranks and switches")
             print(ranks, switches)
             switch_data['combinationss'].append(ranks);
@@ -71,5 +79,8 @@ if 1:
             np.save(file_path, switch_data)
             print("Memory: ", process.memory_info().rss / 1024 ** 2)  # in bytes
 
+    return switch_data
 
+if __name__=='__main__':
+    switch_run(method, num_samps_for_switch, epochs_num)
 
