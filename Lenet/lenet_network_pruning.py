@@ -350,27 +350,20 @@ def get_ranks(method, path_checkpoint):
 
 ##################################################################################
 # RETRAIN
-
 def threshold_prune_and_retrain(combinationss, thresh):
     '''
     PRUNE/ ZERO OUT THE WEIGHTS
     the ranks are sorted from best to worst
     thresh is what we keep, combinationss is what we discard
     '''
-
     for i in range(len(combinationss)):
         combinationss[i] = torch.LongTensor(combinationss[i][thresh[i]:].copy())
-
     print("\n\nPrunedto:%d_%d_%d_%d\n" % (thresh[0], thresh[1], thresh[2], thresh[3]))
-
     print("Channels pruned: ")
     print(combinationss)
-    # #################################################################################################################3
-    # ########## PRUNE/ ZERO OUT THE WEIGHTS
-    #
-    # net.load_state_dict(torch.load(path, map_location=lambda storage, loc: storage)['model_state_dict'], strict=False)
-    # #net.load_state_dict(torch.load(path, map_location=lambda storage, loc: storage), strict=False)
 
+    ######################################################################################
+    # PRUNE
     if prune_bool:
         it = 0
         for name, param in net.named_parameters():
@@ -389,15 +382,15 @@ def threshold_prune_and_retrain(combinationss, thresh):
         print("After pruning")
         acc=evaluate()
 
-    ##################################################################### RETRAIN
+    #####################################################################
+    # RETRAIN
 
+    print("Gradient")
     if retrain:
         def gradi_new(combs_num):
             def hook(module):
                 module[combinationss[combs_num]] = 0
-
             return hook
-
         net.c1.weight.register_hook(gradi_new(0))
         net.c1.bias.register_hook(gradi_new(0))
         net.bn1.weight.register_hook(gradi_new(0))
@@ -410,14 +403,10 @@ def threshold_prune_and_retrain(combinationss, thresh):
         net.c5.bias.register_hook(gradi_new(2))
         net.f6.weight.register_hook(gradi_new(3))
         net.f6.bias.register_hook(gradi_new(3))
-
         print("Retraining")
-
         train(thresh)
 
     return acc
-
-
 
 #######################
 # SAVING MODEL
