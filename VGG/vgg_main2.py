@@ -20,6 +20,11 @@ import numpy as np
 from torch.nn.parameter import Parameter
 import torch.nn.functional as f
 import matplotlib.pyplot as plt
+#import parent module
+import os,sys,inspect
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+sys.path.insert(0,parentdir)
 from methods import magnitude_rank
 #from vgg_computeComb2 import compute_combinations
 import argparse
@@ -66,21 +71,22 @@ parser.add_argument("--arch", default='25,25,65,80,201,158,159,460,450,490,470,4
 #parser.add_argument("--arch", default='25,25,65,80,201,158,159,460,450,490,470,465,465,450')
 # ar.add_argument("-arch", default=[21,20,65,80,201,147,148,458,436,477,454,448,445,467,441])
 parser.add_argument('--layer', help="layer to prune", default="c1")
-parser.add_argument("--method", default='switch')
+parser.add_argument("--method", default='switch') #switch, l1, l2
 #Dirichlet
-parser.add_argument("--switch_samps", default=100, type=int)
+parser.add_argument("--switch_samps", default=3, type=int)
 parser.add_argument("--switch_epochs", default=1, type=int)
-parser.add_argument("--ranks_method", default='integral') #point, integral
-parser.add_argument("--switch_trainranks", action='store_false')
+parser.add_argument("--ranks_method", default='point') #point, integral
+parser.add_argument("--switch_trainranks", action='store_true')
 #general
 parser.add_argument("--resume", action='store_false')
 parser.add_argument("--prune_bool", action='store_false')
 parser.add_argument("--retrain_bool", action='store_false')
-parser.add_argument("--model", default="None")
+parser.add_argument("--model", default=None)
 # parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 save_accuracy=91.0
 
 args = parser.parse_args()
+print(args)
 print(args.layer)
 print("architecture for pruning: ", args.arch)
 
@@ -580,40 +586,44 @@ def prune_and_retrain(thresh):
         # READ THE RANKS
         if method == 'switch':
             epochs_num=1
-            num_samps_for_switch = 3
+            num_samps_for_switch = args.switch_samps
             ranks_method=args.ranks_method
             #path =
             ########################################################
-            if ranks_method == 'shapley':
-                combinationss = []
-                shapley_file = open(
-                    "/home/user/Dropbox/Current_research/python_tests/results_shapley/combinations/94.34/zeroing_0.2val/shapley.txt")
-                for line in shapley_file:
-                    line = line.strip()[1:-2]
-                    nums = line.split(",")
-                    nums_int = [int(i) for i in nums]
-                    combinationss.append(nums_int)
+            # if ranks_method == 'shapley':
+            #     combinationss = []
+            #     shapley_file = open(
+            #         "/home/user/Dropbox/Current_research/python_tests/results_shapley/combinations/94.34/zeroing_0.2val/shapley.txt")
+            #     for line in shapley_file:
+            #         line = line.strip()[1:-2]
+            #         nums = line.split(",")
+            #         nums_int = [int(i) for i in nums]
+            #         combinationss.append(nums_int)
             #######################################################
-            elif ranks_method == 'integral':
+            if ranks_method == 'integral':
                 print(ranks_method)
                 if args.switch_trainranks:
+                    print("Training switches/n")
                     ranks = script_vgg("switch_" + ranks_method, epochs_num, num_samps_for_switch)
                     combinationss = ranks['combinationss']
                 else:
+                    print("Loading switches\n")
                     ranks_path = path_main+"/methods/switches/VGG/integral/switch_data_cifar_integral_samps_%i_epochs_%i.npy" % (args.switch_samps, args.switch_epochs)
                     combinationss=list(np.load(ranks_path,  allow_pickle=True).item()['combinationss'])
             #######################################################
             elif ranks_method == 'point':
                 print(ranks_method)
                 if args.switch_trainranks:
+                    print("Training switches\n")
                     ranks = script_vgg("switch_"+ranks_method, epochs_num)
                     combinationss = ranks['combinationss']
                 else:
+                    print("Loading switches")
                     ranks_path = path_main+'/methods/switches/VGG/point/switch_data_cifar_point_epochs_%i.npy' % (args.switch_epochs)
                     combinationss=list(np.load(ranks_path,  allow_pickle=True).item()['combinationss'])
                 # these numbers from the beginning will be cut off, meaning the worse will be cut off
-                for i in range(len(combinationss)):
-                    combinationss[i] = torch.LongTensor(combinationss[i][thresh[i]:].copy())
+            for i in range(len(combinationss)):
+                combinationss[i] = torch.LongTensor(combinationss[i][thresh[i]:].copy())
         #################################################################
         elif method == 'l1' or method == 'l2':
             magnitude_rank.setup()

@@ -80,21 +80,21 @@ architecture="vgg"
 annealing_steps = float(6000000)
 beta_func = lambda s: min(s, annealing_steps) / annealing_steps
 #alpha and switch_init
-arguments=argparse.ArgumentParser()
-arguments.add_argument("--alpha", default=0.5, type=float)#2 # below 1 so that we encourage sparsity
-arguments.add_argument("--switch_init", default=0.05, type=float)#-1
-arguments.add_argument("--layer", default='conv2')
-arguments.add_argument("--epochs_num", default=3)
-arguments.add_argument("--switch_samps", default=3)
-args=arguments.parse_args()
-#alpha = float(sys.argv[2]) if len (sys.argv)>2 else 0.5#2  # below 1 so that we encourage sparsity
-#switch_init=float(sys.argv[3]) if len (sys.argv)>3 else 0.05#-1
-#switch_layer= sys.argv[1] if len(sys.argv)>1 else 'conv14' # only name, need to change the position of the switches manually separately
-alpha=args.alpha
-switch_init=args.switch_init
-switch_layer=args.layer
-epochs_num=args.epochs_num
-switch_samps=args.switch_samps
+# arguments=argparse.ArgumentParser()
+# arguments.add_argument("--alpha", default=0.5, type=float)#2 # below 1 so that we encourage sparsity
+# arguments.add_argument("--switch_init", default=0.05, type=float)#-1
+# arguments.add_argument("--layer", default='conv2')
+# arguments.add_argument("--epochs_num", default=3)
+# arguments.add_argument("--switch_samps", default=3)
+# args=arguments.parse_args()
+# #alpha = float(sys.argv[2]) if len (sys.argv)>2 else 0.5#2  # below 1 so that we encourage sparsity
+# #switch_init=float(sys.argv[3]) if len (sys.argv)>3 else 0.05#-1
+# #switch_layer= sys.argv[1] if len(sys.argv)>1 else 'conv14' # only name, need to change the position of the switches manually separately
+# alpha=args.alpha
+# switch_init=args.switch_init
+# switch_layer=args.layer
+# epochs_num=args.epochs_num
+# switch_samps=args.switch_samps
 
 BATCH_SIZE=100
 model_parameters = '94.34'
@@ -103,7 +103,7 @@ lr = 0.1
 
 epoch_to_save=1
 
-print(args.layer)
+
 
 #saving
 # save_path=path_switch+"/results/cifar/vgg_%s/switch_init_%.2f_alpha_%.2f_annealing_%d" % (model_parameters, alpha, switch_init, annealing_steps)
@@ -128,7 +128,7 @@ cfg = {
 }
 
 model_structure = cfg['VGGKAMFULL']
-hidden_dim = model_structure[int(switch_layer[4:])] #it's a number of parameters we want to estimate, e.g. # conv1 filters
+# hidden_dim = model_structure[int(switch_layer[4:])] #it's a number of parameters we want to estimate, e.g. # conv1 filters
 
 
 class VGG(nn.Module):
@@ -529,19 +529,19 @@ def train(epoch, net_all, optimizer, hidden_dim, switch_layer):
     print("max: %.4f, min: %.4f" % (torch.max(S), torch.min(S)))
     # print(torch.argsort(S))
     ranks_sorted = np.argsort(S.cpu().detach().numpy())[::-1]
-    if epoch == epoch_to_save and save_switches_params:
-        torch.save(S, '%s/%s_new_alpha%.2f_switchinit%.2f_%s_ep%d.pt' % (save_path, model_parameters, alpha, switch_init, switch_layer, epoch))
-        if save_switches_text:
-            with open(save_textfile, "a+") as file:
-                file.write(switch_layer+"\n\n")
-                file.write('\nEpoch: %d\n' % epoch)
-                file.write("alpha:%.2f switchinit:%.2f\n" % (alpha, switch_init))
-                file.write('Loss: %.3f | Acc: %.3f%% (%d/%d)\n' % (train_loss / (batch_idx + 1), 100. * correct / total, correct, total))
-                file.write('BCE: %.3f, KLD: %.3f, KLD_discounted: %.3f\n' % (BCE, KLD, KLD_discounted))
-                file.write(" ".join(str(item) for item in S.cpu().detach().numpy()))
-                file.write("\nmax: %.4f, min: %.4f\n" % (torch.max(S), torch.min(S)))
-                file.write(",".join(map(str, ranks_sorted)))
-                file.write("\n\n\n")
+    # if epoch == epoch_to_save and save_switches_params:
+    #     torch.save(S, '%s/%s_new_alpha%.2f_switchinit%.2f_%s_ep%d.pt' % (save_path, model_parameters, alpha, switch_init, switch_layer, epoch))
+    #     if save_switches_text:
+    #         with open(save_textfile, "a+") as file:
+    #             file.write(switch_layer+"\n\n")
+    #             file.write('\nEpoch: %d\n' % epoch)
+    #             file.write("alpha:%.2f switchinit:%.2f\n" % (alpha, switch_init))
+    #             file.write('Loss: %.3f | Acc: %.3f%% (%d/%d)\n' % (train_loss / (batch_idx + 1), 100. * correct / total, correct, total))
+    #             file.write('BCE: %.3f, KLD: %.3f, KLD_discounted: %.3f\n' % (BCE, KLD, KLD_discounted))
+    #             file.write(" ".join(str(item) for item in S.cpu().detach().numpy()))
+    #             file.write("\nmax: %.4f, min: %.4f\n" % (torch.max(S), torch.min(S)))
+    #             file.write(",".join(map(str, ranks_sorted)))
+    #             file.write("\n\n\n")
 
 
     print(",".join(map(str, ranks_sorted)))

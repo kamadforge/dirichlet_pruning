@@ -79,22 +79,22 @@ architecture="vgg"
 annealing_steps = float(6000000)
 beta_func = lambda s: min(s, annealing_steps) / annealing_steps
 #alpha and switch_init
-arguments=argparse.ArgumentParser()
-arguments.add_argument("--alpha", default=0.5, type=float)#2 # below 1 so that we encourage sparsity
-arguments.add_argument("--switch_init", default=0.05, type=float)#-1
-arguments.add_argument("--layer", default='conv1')
-arguments.add_argument("--epochs_num", default=10)
-arguments.add_argument("--switch_samps", default=3)
-arguments.add_argument("--path_switch_checkpoint", default="None")
-args=arguments.parse_args()
+# arguments=argparse.ArgumentParser()
+# arguments.add_argument("--alpha", default=0.5, type=float)#2 # below 1 so that we encourage sparsity
+# arguments.add_argument("--switch_init", default=0.05, type=float)#-1
+# arguments.add_argument("--layer", default='conv1')
+# arguments.add_argument("--epochs_num", default=10)
+# arguments.add_argument("--switch_samps", default=3)
+# arguments.add_argument("--path_switch_checkpoint", default="None")
+# args=arguments.parse_args()
 #alpha = float(sys.argv[2]) if len (sys.argv)>2 else 0.5#2  # below 1 so that we encourage sparsity
 #switch_init=float(sys.argv[3]) if len (sys.argv)>3 else 0.05#-1
 #switch_layer= sys.argv[1] if len(sys.argv)>1 else 'conv14' # only name, need to change the position of the switches manually separately
-alpha=args.alpha
-switch_init=args.switch_init
-switch_layer=args.layer
-epochs_num=args.epochs_num
-switch_samps=args.switch_samps
+# alpha=args.alpha
+# switch_init=args.switch_init
+# switch_layer=args.layer
+# epochs_num=args.epochs_num
+# switch_samps=args.switch_samps
 dataset='cifar'
 
 
@@ -105,14 +105,14 @@ lr = 0.1
 
 epoch_to_save=1
 
-print(args.layer)
-
-#saving
-save_path=path_switch+"/results/cifar/vgg_%s/switch_init_%.2f_alpha_%.2f_annealing_%d" % (model_parameters, alpha, switch_init, annealing_steps)
-os.makedirs(save_path, exist_ok=True)
-save_textfile="%s/switch_init_%.2f, alpha_%.2f.txt" % (save_path, alpha, switch_init)
-save_switches_params=True
-save_switches_text=True
+# print(args.layer)
+#
+# #saving
+# save_path=path_switch+"/results/cifar/vgg_%s/switch_init_%.2f_alpha_%.2f_annealing_%d" % (model_parameters, alpha, switch_init, annealing_steps)
+# os.makedirs(save_path, exist_ok=True)
+# save_textfile="%s/switch_init_%.2f, alpha_%.2f.txt" % (save_path, alpha, switch_init)
+# save_switches_params=True
+# save_switches_text=True
 
 ############################################################
 # NETWORK
@@ -129,7 +129,7 @@ cfg = {
 }
 
 model_structure = cfg['VGGKAMFULL']
-hidden_dim2 = model_structure[int(switch_layer[4:])] #it's a number of parameters we want to estimate, e.g. # conv1 filters
+# hidden_dim2 = model_structure[int(switch_layer[4:])] #it's a number of parameters we want to estimate, e.g. # conv1 filters
 
 
 class VGG(nn.Module):
