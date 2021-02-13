@@ -78,9 +78,9 @@ parser.add_argument("--switch_epochs", default=1, type=int)
 parser.add_argument("--ranks_method", default='point') #point, integral
 parser.add_argument("--switch_trainranks", action='store_true')
 #general
-parser.add_argument("--resume", action='store_false')
-parser.add_argument("--prune_bool", action='store_false')
-parser.add_argument("--retrain_bool", action='store_false')
+parser.add_argument("--resume", action='store_true')
+parser.add_argument("--prune_bool", action='store_true')
+parser.add_argument("--retrain_bool", action='store_true')
 parser.add_argument("--model", default=None)
 # parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 save_accuracy=91.0
@@ -584,6 +584,7 @@ def prune_and_retrain(thresh):
     if prune_bool:
         ############################3
         # READ THE RANKS
+        print("\nPruning the model\n")
         if method == 'switch':
             epochs_num=1
             num_samps_for_switch = args.switch_samps
@@ -603,11 +604,11 @@ def prune_and_retrain(thresh):
             if ranks_method == 'integral':
                 print(ranks_method)
                 if args.switch_trainranks:
-                    print("Training switches/n")
+                    print("\nTraining switches\n")
                     ranks = script_vgg("switch_" + ranks_method, epochs_num, num_samps_for_switch)
                     combinationss = ranks['combinationss']
                 else:
-                    print("Loading switches\n")
+                    print("\nLoading switches\n")
                     ranks_path = path_main+"/methods/switches/VGG/integral/switch_data_cifar_integral_samps_%i_epochs_%i.npy" % (args.switch_samps, args.switch_epochs)
                     combinationss=list(np.load(ranks_path,  allow_pickle=True).item()['combinationss'])
             #######################################################
@@ -742,7 +743,7 @@ def prune_and_retrain(thresh):
     #######################################################
     # RETRAIN
     if retrain_bool:
-        print("Retraining")
+        print("\nRetraining\n")
         net.train()
         stop = 0;
         epoch = 0;
@@ -796,6 +797,7 @@ if resume:
     load_model()
 # training from scratch
 else:
+    print("\nTraining from scratch\n")
     best_accuracy = 0
     session1end = start_epoch + 10;
     session2end = start_epoch + 250;
