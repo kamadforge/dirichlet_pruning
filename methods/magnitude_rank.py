@@ -410,7 +410,7 @@ def get_ranks(method, net):
 
         if (("c" in name) or ("f" in name) or ("l1" in name)) and ("weight" in name): #i think f and l are both fullt connected
             # print(name)
-            print (name, param.shape)
+            # print (name, param.shape)
             m = torch.flatten(param, start_dim=1)
 
             l2 = torch.norm(m, p=2, dim=1)

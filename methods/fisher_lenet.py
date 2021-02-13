@@ -45,9 +45,6 @@ class Lenet(nn.Module):
         self.activation4.register_backward_hook(self._fisher4)
 
 
-
-
-
     def forward(self, x):
 
         # output=f.relu(self.fc1(x))
