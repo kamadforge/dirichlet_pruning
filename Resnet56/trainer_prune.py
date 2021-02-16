@@ -10,7 +10,18 @@ import torch.optim
 import torch.utils.data
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
-from . import resnet_switch as resnet
+import sys
+from pathlib import Path
+import os,sys,inspect
+current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parent_dir = os.path.dirname(current_dir)
+sys.path.insert(0, parent_dir)
+#sys.path.append(str(Path(sys.path[0]).resolve().parent))
+#sys.path.append(str(Path(sys.path[0]).resolve().parent / "folder1"))
+
+from methods.resnet_trainer_switch import main as resnet_switch_main
+
+from models import resnet
 #from results_switch_v3.models import resnet
 import numpy as np
 
@@ -40,13 +51,14 @@ parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
 parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
                     metavar='W', help='weight decay (default: 1e-4)')
-parser.add_argument('--print-freq', '-p', default=50, type=int,
+parser.add_argument('--print-freq', '-p', default=100, type=int,
                     metavar='N', help='print frequency (default: 50)')
-parser.add_argument('--resume', default='../Resnet56/pretrained_models/resnet56-4bfd9763.th', type=str, metavar='PATH',
+parser.add_argument('--resume', default='pretrained_models/resnet56-4bfd9763.th', type=str, metavar='PATH',
+#parser.add_argument('--resume', default='save_temp/checkpoint_pruned_76.26.th', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
-parser.add_argument('--pretrained', dest='pretrained', action='store_false',
+parser.add_argument('--pretrained', dest='pretrained', action='store_true',
                     help='use pre-trained model')
 parser.add_argument('--half', dest='half', action='store_true',
                     help='use half-precision(16-bit) ')
@@ -56,6 +68,12 @@ parser.add_argument('--save-dir', dest='save_dir',
 parser.add_argument('--save-every', dest='save_every',
                     help='Saves checkpoints at every specified number of epochs',
                     type=int, default=10)
+
+
+parser.add_argument("--prune", default=True)
+parser.add_argument("--pruned_arch", default="13,31,45")
+
+
 best_prec1 = 0
 
 
@@ -71,21 +89,8 @@ def main():
     model = torch.nn.DataParallel(resnet.__dict__[args.arch]())
     model.cuda()
 
-    # optionally resume from a checkpoint
-    if args.resume:
-        if os.path.isfile(args.resume):
-            print("=> loading checkpoint '{}'".format(args.resume))
-            checkpoint = torch.load(args.resume)
-            args.start_epoch = 0 #checkpoint['epoch']
-            best_prec1 = checkpoint['best_prec1']
-            model.load_state_dict(checkpoint['state_dict'], strict=False)
-            print("=> loaded checkpoint '{}' (epoch {})"
-                  .format(args.evaluate, 0))
-        else:
-            print("=> no checkpoint found at '{}'".format(args.resume))
-
+    #data
     cudnn.benchmark = True
-
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
 
@@ -107,19 +112,33 @@ def main():
         batch_size=128, shuffle=False,
         num_workers=args.workers, pin_memory=True)
 
+
     # define loss function (criterion) and optimizer
     criterion = nn.CrossEntropyLoss().cuda()
-
     if args.half:
         model.half()
         criterion.half()
-
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay)
-
     lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
                                                         milestones=[100, 150], last_epoch=args.start_epoch - 1)
+
+    # optionally resume from a checkpoint
+    if args.resume:
+        if os.path.isfile(args.resume):
+            print("=> loading checkpoint '{}'".format(args.resume))
+            checkpoint = torch.load(args.resume)
+            args.start_epoch = 0#checkpoint['epoch']
+            best_prec1 = 0# checkpoint['best_prec1']
+            model.load_state_dict(checkpoint['state_dict'])
+            print("=> loaded checkpoint '{}' (epoch {})"
+                  .format(args.evaluate, 0))
+            validate(val_loader, model, criterion)
+        else:
+            print("=> no checkpoint found at '{}'".format(args.resume))
+
+
 
     if args.arch in ['resnet1202', 'resnet110']:
         # for resnet1202 original paper uses lr=0.01 for first 400 minibatches for warm-up
@@ -127,16 +146,25 @@ def main():
         for param_group in optimizer.param_groups:
             param_group['lr'] = args.lr*0.1
 
+    if args.prune:
+
+        print("\n   Pruning")
+        prune_func(model)
+        prec1 = validate(val_loader, model, criterion)
 
     if args.evaluate:
+        # for name, param in model.named_parameters():
+        #     print(name, param.shape)
+        print("Evaluating:")
         validate(val_loader, model, criterion)
         return
 
+    print("\nTraining\n")
     for epoch in range(args.start_epoch, args.epochs):
 
         # train for one epoch
         print('current lr {:.5e}'.format(optimizer.param_groups[0]['lr']))
-        S, ranks = train(train_loader, model, criterion, optimizer, epoch)
+        train(train_loader, model, criterion, optimizer, epoch)
         lr_scheduler.step()
 
         # evaluate on validation set
@@ -146,19 +174,40 @@ def main():
         is_best = prec1 > best_prec1
         best_prec1 = max(prec1, best_prec1)
 
-        if epoch > 0 and epoch % args.save_every == 0:
+        # check if the connections are actually pruned
+        # for name, param in model.named_parameters():
+        #     print(name)
+        #     if "layer" in name and ("conv1.weight" in name or "conv2.weight" in name):
+        #         channels = param.shape[1]
+        #         for ch in range(channels):
+        #             ch_sum = torch.sum(param[:,ch])
+        #             if ch_sum == 0:
+        #                 print(ch)
+        #     else:
+        #         channels = param.shape[0]
+        #         for ch in range(channels):
+        #             ch_sum = torch.sum(param[ch])
+        #             if ch_sum == 0:
+        #                 print(ch)
+
+
+        if args.prune:
+            name_checkpoint = f"checkpoint_pruned_{prec1}.th"
+        else:
+            name_checkpoint = f"checkpoint_{prec1}.th"
+
+        #if epoch > 0 and epoch % args.save_every == 0 and is_best:
+        if is_best:
             save_checkpoint({
                 'epoch': epoch + 1,
                 'state_dict': model.state_dict(),
                 'best_prec1': best_prec1,
-            }, is_best, filename=os.path.join(args.save_dir, 'checkpoint.th'))
+            }, is_best, filename=os.path.join(args.save_dir, name_checkpoint))
 
-        save_checkpoint({
-            'state_dict': model.state_dict(),
-            'best_prec1': best_prec1,
-        }, is_best, filename=os.path.join(args.save_dir, 'model.th'))
-
-        return ranks
+        # save_checkpoint({
+        #     'state_dict': model.state_dict(),
+        #     'best_prec1': best_prec1,
+        # }, is_best, filename=os.path.join(args.save_dir, f'model_{prec1}.th'))
 
 
 def train(train_loader, model, criterion, optimizer, epoch):
@@ -170,10 +219,6 @@ def train(train_loader, model, criterion, optimizer, epoch):
     losses = AverageMeter()
     top1 = AverageMeter()
 
-    # for name, param in model.named_parameters():
-    #     print(name, param.shape)
-    #     if "param" not in name:
-    #         param.register_hook(lambda grad: grad * 0)
 
     # switch to train mode
     model.train()
@@ -197,23 +242,19 @@ def train(train_loader, model, criterion, optimizer, epoch):
         # compute gradient and do SGD step
         optimizer.zero_grad()
         loss.backward()
-        for name, param in model.named_parameters():
-            if "param" not in name:
-                param.grad = None
 
+        # for name, param in model.named_parameters():
+        #     if "param" not in name:
+        #         #param.grad = None
+        #         print(param.grad.shape)
+        #print(model.module.layer1[0].conv1.weight.grad[0])
+        #model.module.layer1[0].conv1.weight.grad[0] = 0
         optimizer.step()
 
-        #Dirichlet
-        #print(model.module.conv1.weight[1])
-        # print(net.module.layer1[1].conv1.weight[1])
-        # print(model.module.layer1[1].parameter2)
+        zero_params(model, ranks, thresholds)
 
-
-
-
-
-
-
+        # print(model.module.layer1[0].conv1.weight[0])
+        # print('*'*100)
 
         output = output.float()
         loss = loss.float()
@@ -235,25 +276,11 @@ def train(train_loader, model, criterion, optimizer, epoch):
                       epoch, i, len(train_loader), batch_time=batch_time,
                       data_time=data_time, loss=losses, top1=top1))
 
-    feature_ranks = {}
-    for name, param in model.named_parameters():
-        print(name, param.shape)
-        if "param" in name:
-            print(name)
-            print (param)
-
-            sorted_features = torch.argsort(param, descending=True)
-            feature_ranks[name] = sorted_features
-            print(sorted_features)
-    os.makedirs("../methods/switches/Resnet56/", exist_ok=True)
-    np.save(f"../methods/switches/Resnet56/ranks_epi_{epoch}.npy", feature_ranks)
-    return feature_ranks
-
-
 def validate(val_loader, model, criterion):
     """
     Run evaluation
     """
+    print("\nValidating:\n")
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
@@ -267,7 +294,6 @@ def validate(val_loader, model, criterion):
             target = target.cuda()
             input_var = input.cuda()
             target_var = target.cuda()
-
             if args.half:
                 input_var = input_var.half()
 
@@ -295,7 +321,7 @@ def validate(val_loader, model, criterion):
                           i, len(val_loader), batch_time=batch_time, loss=losses,
                           top1=top1))
 
-    print(' * Prec@1 {top1.avg:.3f}'
+    print('Validation * Prec@1 {top1.avg:.3f}'
           .format(top1=top1))
 
     return top1.avg
@@ -307,7 +333,62 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     torch.save(state, filename)
 
 
-#def get_ranks():
+def get_ranks():
+
+    switch_train = False
+    if switch_train:
+        ranks = resnet_switch_main()
+    else:
+        ranks = np.load("../methods/switches/Resnet56/ranks.npy", allow_pickle=True)
+
+    return ranks
+
+def zero_params(model, ranks, thresholds):
+    for name, param in model.named_parameters():
+        #print(name)
+        if "layer" in name:
+            core_name=name[:15]
+            if "conv1.weight" in name:
+                param1_name=core_name+".parameter1"
+                rank1 = ranks[()][param1_name]
+                channels_bad= rank1[thresholds[core_name]:] #to be removed
+                param.data[:, channels_bad]=0
+            elif "conv2.weight" in name:
+                param2_name = core_name+".parameter2"
+                rank2 = ranks[()][param2_name]
+                channels_bad=rank2[thresholds[core_name]:]
+                param.data[:, channels_bad]=0
+            elif "conv1.bias" in name or "bn1.bias" in name or "bn1.weight" in name:
+                rank1 = ranks[()][param1_name]
+                channels_bad=rank1[thresholds[core_name]:]
+                param.data[channels_bad] = 0
+            elif "conv2.bias" in name or "bn2.bias" in name or "bn2.weight" in name:
+                rank2 = ranks[()][param2_name]
+                channels_bad=rank2[thresholds[core_name]:]
+                param.data[channels_bad] = 0
+
+
+def prune_func(model):
+
+    # get threshold
+    global ranks, thresholds
+    thresholds ={}
+    preserved = [int(n) for n in args.pruned_arch.split(",")]
+    preserved = np.insert(preserved, 0, 0) #adding dummy value at the 0th position
+    for i1 in range(1,4):
+        for i2 in range(0,9):
+            thresholds[f"module.layer{i1}.{i2}"]=int(preserved[i1])
+            #thresholds[f"layer{i1}.{i2}.2"] = preserved[i1]
+    thresholds[f"module.layer2.0"] = int(preserved[1])
+    thresholds[f"module.layer3.0"] = int(preserved[2])
+
+    # get ranks
+    print("Getting ranks")
+    ranks = get_ranks()
+    #print(ranks)
+
+    # zero params
+    zero_params(model, ranks, thresholds)
 
 
 class AverageMeter(object):
