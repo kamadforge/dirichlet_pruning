@@ -70,7 +70,7 @@ parser.add_argument('--save-every', dest='save_every',
                     type=int, default=10)
 
 
-parser.add_argument("--prune", default=True)
+parser.add_argument("--prune", default=False)
 parser.add_argument("--pruned_arch", default="13,31,45")
 
 
@@ -203,6 +203,7 @@ def main():
                 'state_dict': model.state_dict(),
                 'best_prec1': best_prec1,
             }, is_best, filename=os.path.join(args.save_dir, name_checkpoint))
+            print(f"Best saved to {os.path.join(args.save_dir, name_checkpoint)}\n")
 
         # save_checkpoint({
         #     'state_dict': model.state_dict(),
