@@ -20,6 +20,7 @@ sys.path.insert(0, parent_dir)
 #sys.path.append(str(Path(sys.path[0]).resolve().parent / "folder1"))
 
 from methods.resnet_trainer_switch import main as resnet_switch_main
+from dataloaders.dataset_svhn import load_svhn
 
 from models import resnet
 #from results_switch_v3.models import resnet
@@ -53,8 +54,8 @@ parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
                     metavar='W', help='weight decay (default: 1e-4)')
 parser.add_argument('--print-freq', '-p', default=100, type=int,
                     metavar='N', help='print frequency (default: 50)')
-parser.add_argument('--resume', default='pretrained_models/resnet56-4bfd9763.th', type=str, metavar='PATH',
-#parser.add_argument('--resume', default='save_temp/checkpoint_pruned_76.26.th', type=str, metavar='PATH',
+# parser.add_argument('--resume', default='pretrained_models/resnet56-4bfd9763.th', type=str, metavar='PATH',
+parser.add_argument('--resume', default='save_temp/checkpoint_svhn_93.45.th', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
@@ -68,9 +69,10 @@ parser.add_argument('--save-dir', dest='save_dir',
 parser.add_argument('--save-every', dest='save_every',
                     help='Saves checkpoints at every specified number of epochs',
                     type=int, default=10)
+parser.add_argument('--dataset', default="svhn")
 
 
-parser.add_argument("--prune", default=False)
+parser.add_argument("--prune", default=True)
 parser.add_argument("--pruned_arch", default="13,31,45")
 
 
@@ -91,26 +93,31 @@ def main():
 
     #data
     cudnn.benchmark = True
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
 
-    train_loader = torch.utils.data.DataLoader(
-        datasets.CIFAR10(root='./data', train=True, transform=transforms.Compose([
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomCrop(32, 4),
-            transforms.ToTensor(),
-            normalize,
-        ]), download=True),
-        batch_size=args.batch_size, shuffle=True,
-        num_workers=args.workers, pin_memory=True)
+    if args.dataset == "cifar":
+        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                         std=[0.229, 0.224, 0.225])
 
-    val_loader = torch.utils.data.DataLoader(
-        datasets.CIFAR10(root='./data', train=False, transform=transforms.Compose([
-            transforms.ToTensor(),
-            normalize,
-        ])),
-        batch_size=128, shuffle=False,
-        num_workers=args.workers, pin_memory=True)
+        train_loader = torch.utils.data.DataLoader(
+            datasets.CIFAR10(root='./data', train=True, transform=transforms.Compose([
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomCrop(32, 4),
+                transforms.ToTensor(),
+                normalize,
+            ]), download=True),
+            batch_size=args.batch_size, shuffle=True,
+            num_workers=args.workers, pin_memory=True)
+
+        val_loader = torch.utils.data.DataLoader(
+            datasets.CIFAR10(root='./data', train=False, transform=transforms.Compose([
+                transforms.ToTensor(),
+                normalize,
+            ])),
+            batch_size=128, shuffle=False,
+            num_workers=args.workers, pin_memory=True)
+    else:
+
+        train_loader, val_loader = load_svhn()
 
 
     # define loss function (criterion) and optimizer
@@ -192,9 +199,9 @@ def main():
 
 
         if args.prune:
-            name_checkpoint = f"checkpoint_pruned_{prec1}.th"
+            name_checkpoint = f"checkpoint_pruned_{args.dataset}_{prec1}.th"
         else:
-            name_checkpoint = f"checkpoint_{prec1}.th"
+            name_checkpoint = f"checkpoint_{args.dataset}_{args.pruned_arch}_lastonly_{prec1}.th"
 
         #if epoch > 0 and epoch % args.save_every == 0 and is_best:
         if is_best:
@@ -252,7 +259,8 @@ def train(train_loader, model, criterion, optimizer, epoch):
         #model.module.layer1[0].conv1.weight.grad[0] = 0
         optimizer.step()
 
-        zero_params(model, ranks, thresholds)
+        if args.prune:
+            zero_params(model, ranks, thresholds)
 
         # print(model.module.layer1[0].conv1.weight[0])
         # print('*'*100)
@@ -285,6 +293,9 @@ def validate(val_loader, model, criterion):
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
+
+    # for name, param in model.named_parameters():
+    #     print(name, param.shape)
 
     # switch to evaluate mode
     model.eval()
@@ -347,7 +358,8 @@ def get_ranks():
 def zero_params(model, ranks, thresholds):
     for name, param in model.named_parameters():
         #print(name)
-        if "layer" in name:
+        #if "layer" in name:
+        if "layer3.8" in name:
             core_name=name[:15]
             if "conv1.weight" in name:
                 param1_name=core_name+".parameter1"
@@ -368,6 +380,12 @@ def zero_params(model, ranks, thresholds):
                 channels_bad=rank2[thresholds[core_name]:]
                 param.data[channels_bad] = 0
 
+
+# module.layer3.8.bn2.weight torch.Size([64])
+# module.layer3.8.bn2.bias torch.Size([64])
+# module.linear.weight torch.Size([10, 64])
+# module.linear.bias torch.Size([10])
+# Test: [0/79]	Time 0.120 (0.120)	Loss 4.0260 (4.0260)	Prec@1 9.375 (9.375)
 
 def prune_func(model):
 
@@ -390,6 +408,7 @@ def prune_func(model):
 
     # zero params
     zero_params(model, ranks, thresholds)
+    print(f"\nThresholds: {thresholds}")
 
 
 class AverageMeter(object):

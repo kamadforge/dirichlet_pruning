@@ -113,21 +113,12 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        #print("-"*30)
-        #print(x.shape)
         out = F.relu(self.bn1(self.conv1(x)))
-        #print("mod1", out.shape)
         out = self.layer1(out)
-        #print("mod2", out.shape)
         out = self.layer2(out)
-        #print("mod3", out.shape)
         out = self.layer3(out)
-        #print("mod3 after", out.shape)
         out = F.avg_pool2d(out, out.size()[3])
-        #print("pool",out.shape)
         out = out.view(out.size(0), -1)
-        #print("view", out.shape)
-        #print(out.shape)
         out = self.linear(out)
         return out
 

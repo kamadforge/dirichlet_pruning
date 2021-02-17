@@ -87,8 +87,7 @@ save_accuracy=91.0
 
 args = parser.parse_args()
 print(args)
-print(args.layer)
-print("architecture for pruning: ", args.arch)
+#print(args.layer)
 
 
 ################################################################################################
@@ -585,6 +584,7 @@ def prune_and_retrain(thresh):
         ############################3
         # READ THE RANKS
         print("\nPruning the model\n")
+        print("architecture for pruning: ", args.arch)
         if method == 'switch':
             epochs_num=1
             num_samps_for_switch = args.switch_samps
