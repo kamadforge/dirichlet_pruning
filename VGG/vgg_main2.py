@@ -35,6 +35,8 @@ dataset_cifar = SourceFileLoader("module_cifar", "../dataloaders/dataset_cifar.p
 model_lenet5 = SourceFileLoader("module_vgg", "../models/vgg.py").load_module()
 from module_cifar import load_cifar
 from methods.script_vgg_vggswitch import switch_run as script_vgg
+from methods import shapley_rank
+
 
 
 #######
@@ -71,17 +73,20 @@ parser.add_argument("--arch", default='25,25,65,80,201,158,159,460,450,490,470,4
 #parser.add_argument("--arch", default='25,25,65,80,201,158,159,460,450,490,470,465,465,450')
 # ar.add_argument("-arch", default=[21,20,65,80,201,147,148,458,436,477,454,448,445,467,441])
 parser.add_argument('--layer', help="layer to prune", default="c1")
-parser.add_argument("--method", default='switch') #switch, l1, l2
+parser.add_argument("--method", default='shapley') #switch, l1, l2
+parser.add_argument("--dataset", default="cifar")
 #Dirichlet
 parser.add_argument("--switch_samps", default=3, type=int)
 parser.add_argument("--switch_epochs", default=1, type=int)
 parser.add_argument("--ranks_method", default='point') #point, integral
 parser.add_argument("--switch_trainranks", action='store_true')
+#
+parser.add_argument("--comp_comb", default=True)
 #general
 parser.add_argument("--resume", action='store_true')
 parser.add_argument("--prune_bool", action='store_true')
 parser.add_argument("--retrain_bool", action='store_true')
-parser.add_argument("--model", default=None)
+parser.add_argument("--model", default="None")
 # parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 save_accuracy=91.0
 
@@ -513,7 +518,7 @@ def test(dataset):
     test_loss / (batch_idx + 1), 100. * correct / total, correct, total))
     return 100.0 * float(correct) / total
 
-def testval():
+def testval(default="val"):
     # for name, param in net.named_parameters():
     #     print (name)
     #     print (param)
@@ -625,6 +630,7 @@ def prune_and_retrain(thresh):
                 # these numbers from the beginning will be cut off, meaning the worse will be cut off
             for i in range(len(combinationss)):
                 combinationss[i] = torch.LongTensor(combinationss[i][thresh[i]:].copy())
+
         #################################################################
         elif method == 'l1' or method == 'l2':
             magnitude_rank.setup()
@@ -633,7 +639,19 @@ def prune_and_retrain(thresh):
             for i in range(len(combinationss)):
                 combinationss[i] = torch.LongTensor(combinationss[i][:thresh[i]].copy())
             print(combinationss[1])
-        ####################################################################
+
+        ###############
+        elif method == 'shapley':
+            compute_combinations = args.comp_comb
+            try:
+                combinationss = shapley_rank.shapley_rank(testval, net, "VGG", args.dataset, compute_combinations)
+            except KeyboardInterrupt:
+                print('Interrupted')
+                shapley_rank.file_check()
+                try:
+                    sys.exit(0)
+                except SystemExit:
+                    os._exit(0) ####################################################################
         elif method == 'fisher':
             # in the process of finetuning we accumulate the gradient information that w eadd for each batch. We use this gradient info for constructing a ranking.
             net.module.reset_fisher()

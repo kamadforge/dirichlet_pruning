@@ -22,6 +22,8 @@ sys.path.insert(0, parent_dir)
 from methods.resnet_trainer_switch import main as resnet_switch_main
 from dataloaders.dataset_svhn import load_svhn
 
+from methods import shapley_rank
+
 from models import resnet
 #from results_switch_v3.models import resnet
 import numpy as np
@@ -54,8 +56,8 @@ parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
                     metavar='W', help='weight decay (default: 1e-4)')
 parser.add_argument('--print-freq', '-p', default=100, type=int,
                     metavar='N', help='print frequency (default: 50)')
-# parser.add_argument('--resume', default='pretrained_models/resnet56-4bfd9763.th', type=str, metavar='PATH',
-parser.add_argument('--resume', default='save_temp/checkpoint_svhn_93.45.th', type=str, metavar='PATH',
+parser.add_argument('--resume', default='pretrained_models/resnet56-4bfd9763.th', type=str, metavar='PATH',
+# parser.add_argument('--resume', default='save_temp/checkpoint_pruned_svhn_91.08_last.th', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
@@ -69,7 +71,11 @@ parser.add_argument('--save-dir', dest='save_dir',
 parser.add_argument('--save-every', dest='save_every',
                     help='Saves checkpoints at every specified number of epochs',
                     type=int, default=10)
-parser.add_argument('--dataset', default="svhn")
+parser.add_argument('--dataset', default="cifar")
+
+parser.add_argument('--method', default="shapley")
+#shapley
+parser.add_argument("--comp_comb", default=True)
 
 
 parser.add_argument("--prune", default=True)
@@ -94,6 +100,8 @@ def main():
     #data
     cudnn.benchmark = True
 
+    print(f"Dataset: {args.dataset}")
+    global train_loader, val_loader
     if args.dataset == "cifar":
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                          std=[0.229, 0.224, 0.225])
@@ -115,12 +123,14 @@ def main():
             ])),
             batch_size=128, shuffle=False,
             num_workers=args.workers, pin_memory=True)
+
     else:
 
         train_loader, val_loader = load_svhn()
 
 
     # define loss function (criterion) and optimizer
+    global criterion
     criterion = nn.CrossEntropyLoss().cuda()
     if args.half:
         model.half()
@@ -141,7 +151,13 @@ def main():
             model.load_state_dict(checkpoint['state_dict'])
             print("=> loaded checkpoint '{}' (epoch {})"
                   .format(args.evaluate, 0))
-            validate(val_loader, model, criterion)
+            validate(model)
+
+            for name, param in model.named_parameters():
+                if "weight" in name and "bn" not in name and "linear" not in name:
+                    print(name)
+                    print(param.shape)
+                    print(torch.sum(param, axis=(0,2,3)))
         else:
             print("=> no checkpoint found at '{}'".format(args.resume))
 
@@ -157,13 +173,13 @@ def main():
 
         print("\n   Pruning")
         prune_func(model)
-        prec1 = validate(val_loader, model, criterion)
+        prec1 = validate(model)
 
     if args.evaluate:
         # for name, param in model.named_parameters():
         #     print(name, param.shape)
         print("Evaluating:")
-        validate(val_loader, model, criterion)
+        validate(model)
         return
 
     print("\nTraining\n")
@@ -175,7 +191,7 @@ def main():
         lr_scheduler.step()
 
         # evaluate on validation set
-        prec1 = validate(val_loader, model, criterion)
+        prec1 = validate(model)
 
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1
@@ -199,9 +215,9 @@ def main():
 
 
         if args.prune:
-            name_checkpoint = f"checkpoint_pruned_{args.dataset}_{prec1}.th"
+            name_checkpoint = f"checkpoint_pruned_last_{args.dataset}_{prec1:.2f}.th"
         else:
-            name_checkpoint = f"checkpoint_{args.dataset}_{args.pruned_arch}_lastonly_{prec1}.th"
+            name_checkpoint = f"checkpoint_{args.dataset}_{args.pruned_arch}_{prec1:.2f}.th"
 
         #if epoch > 0 and epoch % args.save_every == 0 and is_best:
         if is_best:
@@ -285,7 +301,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
                       epoch, i, len(train_loader), batch_time=batch_time,
                       data_time=data_time, loss=losses, top1=top1))
 
-def validate(val_loader, model, criterion):
+def validate(model, type="val"):
     """
     Run evaluation
     """
@@ -345,21 +361,37 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     torch.save(state, filename)
 
 
-def get_ranks():
+def get_ranks(model):
 
-    switch_train = False
-    if switch_train:
-        ranks = resnet_switch_main()
-    else:
-        ranks = np.load("../methods/switches/Resnet56/ranks.npy", allow_pickle=True)
+    if args.method == 'switch':
+        switch_train = False
+        if switch_train:
+            ranks = resnet_switch_main()
+        else:
+            ranks = np.load("../methods/switches/Resnet56/ranks.npy", allow_pickle=True)
+
+    elif args.method == 'shapley':
+        compute_combinations = args.comp_comb
+        try:
+            #validate(val_loader, model, criterion)
+            ranks = shapley_rank.shapley_rank(validate, model, "Resnet", args.dataset, compute_combinations)
+        except KeyboardInterrupt:
+            print('Interrupted')
+            shapley_rank.file_check()
+            try:
+                sys.exit(0)
+            except SystemExit:
+                os._exit(0)
+
 
     return ranks
 
 def zero_params(model, ranks, thresholds):
     for name, param in model.named_parameters():
         #print(name)
-        #if "layer" in name:
-        if "layer3.8" in name:
+        if "layer" in name:
+        #if "layer3.8" in name and ("conv2" in name or "bn2" in name):
+            # print(f"pruning layer {name}")
             core_name=name[:15]
             if "conv1.weight" in name:
                 param1_name=core_name+".parameter1"
@@ -403,7 +435,7 @@ def prune_func(model):
 
     # get ranks
     print("Getting ranks")
-    ranks = get_ranks()
+    ranks = get_ranks(model)
     #print(ranks)
 
     # zero params

@@ -24,9 +24,12 @@ import argparse
 arguments=argparse.ArgumentParser()
 arguments.add_argument("--arch", default="7,10,40,20")
 arguments.add_argument("--folder")
-arguments.add_argument("--method", default="switch_integral") #switch_itegral, swithc_point, fisher, l1, l2, random
+arguments.add_argument("--method", default="shapley") #switch_itegral, swithc_point, fisher, l1, l2, random
 arguments.add_argument("--switch_samps", default=150, type=int)
 arguments.add_argument("--switch_comb", default='train') #train, load
+#shapley
+arguments.add_argument("--comp_comb", default=False)
+
 arguments.add_argument("--dataset", default="mnist")
 arguments.add_argument("--early_stopping", default=500, type=int)
 arguments.add_argument("--batch_size", default=105, type=int)
@@ -80,6 +83,7 @@ parentdir = os.path.dirname(currentdir)
 sys.path.insert(0,parentdir)
 
 from methods import magnitude_rank
+from methods import shapley_rank
 #from lenet_network_pruning_withcombinations import compute_combinations_lenet
 #from lenet_network_pruning_withcombinations import get_data
 from methods.lenet5_switch_integral import run_experiment as run_experiment_integral
@@ -143,7 +147,7 @@ def load_model(path_checkpoint_load):
 ########################################################
 # EVALUATE
 
-def evaluate():
+def evaluate(evaluation="test", net=net):
     print(f'\nEvaluating model on {evaluation} dataset')
     net.eval()
     correct = 0
@@ -221,11 +225,8 @@ def train(thresh=[-1,-1,-1,-1]):
                     if best_accuracy > save_accuracy:
                         torch.save({'model_state_dict': best_model, 'optimizer_state_dict': best_optim},f"{path_checkpoint_save_scratch}/{dataset}_trainval_{args.trainval_perc}_epo_{epoch}_acc_{best_accuracy}")
                         print("Saving checkpoint")
-
             entry[0] = accuracy;
             entry[1] = loss
-
-
     print(loss.item())
     print("Final: " + str(best_accuracy))
     accuracy = evaluate()
@@ -250,23 +251,19 @@ def finetune():
 
 
         input, target = input.to(device), target.to(device)
-
         # compute output
         output = net(input)
-
         loss = criterion(output, target)
-
         # compute gradient and do SGD step
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-
-
-
-
 ####################################################3
 # get ranks
+
+#input : method, path to the model we want to rank
+#output : rank (list of four numpy arrays, one for each layer)
 
 
 def get_ranks(method, path_checkpoint):
@@ -282,6 +279,19 @@ def get_ranks(method, path_checkpoint):
         for i in range(4):
             fisher_rank=np.argsort(net.running_fisher[i].detach().cpu().numpy())[::-1]
             combinationss.append(fisher_rank)
+
+    elif method == 'shapley':
+        compute_combinations = args.comp_comb
+        try:
+            combinationss = shapley_rank.shapley_rank(evaluate, net, "Lenet", dataset, compute_combinations)
+        except KeyboardInterrupt:
+            print('Interrupted')
+            shapley_rank.file_check()
+            try:
+                sys.exit(0)
+            except SystemExit:
+                os._exit(0)
+
 
     elif method=="switch_integral":
 
