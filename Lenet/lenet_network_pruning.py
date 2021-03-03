@@ -48,6 +48,7 @@ print(args)
 evaluation="test"
 device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
+print(torch.cuda.get_device_name(torch.cuda.current_device()))
 
 dataset=args.dataset
 os.makedirs(args.path_checkpoint_save, exist_ok=True)

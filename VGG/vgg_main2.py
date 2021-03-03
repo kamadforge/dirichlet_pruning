@@ -75,6 +75,8 @@ parser.add_argument("--arch", default='25,25,65,80,201,158,159,460,450,490,470,4
 parser.add_argument('--layer', help="layer to prune", default="c1")
 parser.add_argument("--method", default='shapley') #switch, l1, l2
 parser.add_argument("--dataset", default="cifar")
+parser.add_argument("--trainval_perc", default=0.8, type=float)
+
 #Dirichlet
 parser.add_argument("--switch_samps", default=3, type=int)
 parser.add_argument("--switch_epochs", default=1, type=int)
@@ -83,13 +85,13 @@ parser.add_argument("--switch_trainranks", action='store_true')
 #
 parser.add_argument("--comp_comb", default=True)
 #general
-parser.add_argument("--resume", action='store_true')
-parser.add_argument("--prune_bool", action='store_true')
-parser.add_argument("--retrain_bool", action='store_true')
+parser.add_argument("--resume", default=False)
+parser.add_argument("--prune_bool", default=False)
+parser.add_argument("--retrain_bool", default=False)
 parser.add_argument("--model", default="None")
 # parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
-save_accuracy=91.0
-
+save_accuracy=65.0
+print(f"Save accuracy: {save_accuracy}\n")
 args = parser.parse_args()
 print(args)
 #print(args.layer)
@@ -411,7 +413,7 @@ class VGG(nn.Module):
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 best_acc = 0  # best test accuracy
 start_epoch = 0  # start from epoch 0 or last checkpoint epoch
-trainloader, testloader, valloader = load_cifar()
+trainloader, testloader, valloader = load_cifar(args.trainval_perc)
 
 ###################################################
 # MAKE AN INSTANCE OF A NETWORK AND (POSSIBLY) LOAD THE MODEL
@@ -518,7 +520,7 @@ def test(dataset):
     test_loss / (batch_idx + 1), 100. * correct / total, correct, total))
     return 100.0 * float(correct) / total
 
-def testval(default="val"):
+def testval(net=net, default="val"):
     # for name, param in net.named_parameters():
     #     print (name)
     #     print (param)
@@ -568,16 +570,16 @@ def save_checkpoint(epoch, acc, best_acc, remaining=0):
     # Save checkpoint.
     # acc = test(epoch)
     if acc > best_acc:
-        print('Saving..')
         state = {'net': net.state_dict(), 'acc': acc, 'epoch': epoch}
         print("acc: ", acc)
         if not os.path.isdir('checkpoint'):
             os.mkdir('checkpoint')
         if acc > save_accuracy:
+            print(f'Saving.. to {path_compression}/checkpoint/')
             if remaining == 0:  # regular training
-                torch.save(state, path_compression+'/checkpoint/ckpt_vgg16_{}.t7'.format(acc))
+                torch.save(state, path_compression+'/checkpoint/ckpt_vgg16_trainval_{}_acc_{}.t7'.format(args.trainval_perc, acc))
             else:
-                torch.save(state, path_compression+'/checkpoint/ckpt_vgg16_prunedto{}_{}.t7'.format(remaining, acc))
+                torch.save(state, path_compression+'/checkpoint/ckpt_vgg16_prunedto{}_acc_{}.t7'.format(remaining, acc))
         best_acc = acc
     return best_acc
 

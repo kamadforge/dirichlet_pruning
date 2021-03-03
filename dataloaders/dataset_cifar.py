@@ -3,7 +3,7 @@ import torch
 import torchvision
 
 
-def load_cifar():
+def load_cifar(trainval_perc):
     # Data
     print('==> Preparing data..')
     transform_train = transforms.Compose([
@@ -20,7 +20,7 @@ def load_cifar():
     # trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=0)
     trainval_dataset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform_train)
     # with more workers there may be an error in debug mode: RuntimeError: DataLoader worker (pid 29274) is killed by signal: Terminated.
-    trainval_perc = 0.8
+    print(f"Training on CIFAR on the {trainval_perc} of the training set.\n")
     train_size = int(trainval_perc * len(trainval_dataset))
     val_size = len(trainval_dataset) - train_size
     torch.manual_seed(0)
