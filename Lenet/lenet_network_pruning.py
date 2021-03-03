@@ -35,8 +35,8 @@ arguments.add_argument("--early_stopping", default=500, type=int)
 arguments.add_argument("--batch_size", default=105, type=int)
 arguments.add_argument("--trainval_perc", default=0.8, type=float)
 
-arguments.add_argument("--resume", default=True)
-arguments.add_argument("--prune_bool", default=True)
+arguments.add_argument("--resume", default=False)
+arguments.add_argument("--prune_bool", default=False)
 arguments.add_argument("--retrain", default=False)
 
 arguments.add_argument("--path_checkpoint_load")
@@ -219,12 +219,14 @@ def train(thresh=[-1,-1,-1,-1]):
             if save:
                 if retrain:
                     if best_accuracy > save_accuracy:
-                        torch.save({'model_state_dict': best_model, 'optimizer_state_dict': best_optim}, f"{path_checkpoint_save_retrain}_retrained_epo_{epoch}_prunedto_{thresh[0]}_{thresh[1]}_{thresh[2]}_{thresh[3]}_acc_{best_accuracy}")
-                        print("Saving checkpoint")
+                        save_path = f"{path_checkpoint_save_retrain}_retrained_epo_{epoch}_prunedto_{thresh[0]}_{thresh[1]}_{thresh[2]}_{thresh[3]}_acc_{best_accuracy}"
+                        torch.save({'model_state_dict': best_model, 'optimizer_state_dict': best_optim}, save_path)
+                        print(f"Saving checkpoint to {save_path}")
                 else:
                     if best_accuracy > save_accuracy:
-                        torch.save({'model_state_dict': best_model, 'optimizer_state_dict': best_optim},f"{path_checkpoint_save_scratch}/{dataset}_trainval_{args.trainval_perc}_epo_{epoch}_acc_{best_accuracy}")
-                        print("Saving checkpoint")
+                        save_path = f"{path_checkpoint_save_scratch}/{dataset}_trainval_{args.trainval_perc}_epo_{epoch}_acc_{best_accuracy}"
+                        torch.save({'model_state_dict': best_model, 'optimizer_state_dict': best_optim}, save_path)
+                        print(f"Saving checkpoint to {save_path}")
             entry[0] = accuracy;
             entry[1] = loss
     print(loss.item())
