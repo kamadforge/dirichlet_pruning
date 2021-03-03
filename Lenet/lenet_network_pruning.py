@@ -147,7 +147,7 @@ def load_model(path_checkpoint_load):
 ########################################################
 # EVALUATE
 
-def evaluate(evaluation="test", net=net):
+def evaluate(net=net, evaluation="test"):
     print(f'\nEvaluating model on {evaluation} dataset')
     net.eval()
     correct = 0
