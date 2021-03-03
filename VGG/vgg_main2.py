@@ -92,6 +92,7 @@ parser.add_argument("--model", default="None")
 # parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 save_accuracy=65.0
 print(f"Save accuracy: {save_accuracy}\n")
+os.makedirs("checkpoint", exist_ok=True)
 args = parser.parse_args()
 print(args)
 #print(args.layer)
