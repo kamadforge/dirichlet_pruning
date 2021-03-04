@@ -21,6 +21,7 @@ sys.path.insert(0, parent_dir)
 
 from methods.resnet_trainer_switch import main as resnet_switch_main
 from dataloaders.dataset_svhn import load_svhn
+from dataloaders.dataset_cifar import load_cifar
 
 from methods import shapley_rank
 
@@ -59,6 +60,7 @@ parser.add_argument('--print-freq', '-p', default=100, type=int,
 parser.add_argument('--resume', default='pretrained_models/resnet56-4bfd9763.th', type=str, metavar='PATH',
 # parser.add_argument('--resume', default='save_temp/checkpoint_pruned_svhn_91.08_last.th', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
+parser.add_argument('--resume_bool', default=False)
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
 parser.add_argument('--pretrained', dest='pretrained', action='store_true',
@@ -72,13 +74,16 @@ parser.add_argument('--save-every', dest='save_every',
                     help='Saves checkpoints at every specified number of epochs',
                     type=int, default=10)
 parser.add_argument('--dataset', default="cifar")
+parser.add_argument("--trainval_perc", default=0.9, type=float)
 
 parser.add_argument('--method', default="shapley")
+
 #shapley
 parser.add_argument("--comp_comb", default=True)
+# switch
+parser.add_argument("--switch_train", default=True)
 
-
-parser.add_argument("--prune", default=True)
+parser.add_argument("--prune", default=False)
 parser.add_argument("--pruned_arch", default="13,31,45")
 
 
@@ -100,29 +105,33 @@ def main():
     #data
     cudnn.benchmark = True
 
+
+
     print(f"Dataset: {args.dataset}")
-    global train_loader, val_loader
+    global train_loader, val_loader, test_loader
     if args.dataset == "cifar":
-        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                         std=[0.229, 0.224, 0.225])
+        # normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+        #                                  std=[0.229, 0.224, 0.225])
+        #
+        # train_loader = torch.utils.data.DataLoader(
+        #     datasets.CIFAR10(root='./data', train=True, transform=transforms.Compose([
+        #         transforms.RandomHorizontalFlip(),
+        #         transforms.RandomCrop(32, 4),
+        #         transforms.ToTensor(),
+        #         normalize,
+        #     ]), download=True),
+        #     batch_size=args.batch_size, shuffle=True,
+        #     num_workers=args.workers, pin_memory=True)
+        #
+        # val_loader = torch.utils.data.DataLoader(
+        #     datasets.CIFAR10(root='./data', train=False, transform=transforms.Compose([
+        #         transforms.ToTensor(),
+        #         normalize,
+        #     ])),
+        #     batch_size=128, shuffle=False,
+        #     num_workers=args.workers, pin_memory=True)
 
-        train_loader = torch.utils.data.DataLoader(
-            datasets.CIFAR10(root='./data', train=True, transform=transforms.Compose([
-                transforms.RandomHorizontalFlip(),
-                transforms.RandomCrop(32, 4),
-                transforms.ToTensor(),
-                normalize,
-            ]), download=True),
-            batch_size=args.batch_size, shuffle=True,
-            num_workers=args.workers, pin_memory=True)
-
-        val_loader = torch.utils.data.DataLoader(
-            datasets.CIFAR10(root='./data', train=False, transform=transforms.Compose([
-                transforms.ToTensor(),
-                normalize,
-            ])),
-            batch_size=128, shuffle=False,
-            num_workers=args.workers, pin_memory=True)
+        train_loader, test_loader, val_loader = load_cifar(args.trainval_perc)
 
     else:
 
@@ -142,7 +151,7 @@ def main():
                                                         milestones=[100, 150], last_epoch=args.start_epoch - 1)
 
     # optionally resume from a checkpoint
-    if args.resume:
+    if args.resume_bool:
         if os.path.isfile(args.resume):
             print("=> loading checkpoint '{}'".format(args.resume))
             checkpoint = torch.load(args.resume)
@@ -214,10 +223,10 @@ def main():
         #                 print(ch)
 
 
-        if args.prune:
-            name_checkpoint = f"checkpoint_pruned_last_{args.dataset}_{prec1:.2f}.th"
-        else:
-            name_checkpoint = f"checkpoint_{args.dataset}_{args.pruned_arch}_{prec1:.2f}.th"
+        if args.prune and args.resume_bool:
+            name_checkpoint = f"checkpoint_pruned_{args.dataset}_{args.pruned_arch}_{prec1:.2f}.th"
+        else: #from scratch
+            name_checkpoint = f"checkpoint_{args.dataset}_trainval_{args.trainval_perc}_acc_{prec1:.2f}.th"
 
         #if epoch > 0 and epoch % args.save_every == 0 and is_best:
         if is_best:
@@ -301,11 +310,11 @@ def train(train_loader, model, criterion, optimizer, epoch):
                       epoch, i, len(train_loader), batch_time=batch_time,
                       data_time=data_time, loss=losses, top1=top1))
 
-def validate(model, type="val"):
+def validate(model, type="test"):
     """
     Run evaluation
     """
-    print("\nValidating:\n")
+    print(f"\nEvaluating on {type}:\n")
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
@@ -316,9 +325,14 @@ def validate(model, type="val"):
     # switch to evaluate mode
     model.eval()
 
+    if type == "val":
+        eval_loader = val_loader
+    elif type == "test":
+        eval_loader = test_loader
+
     end = time.time()
     with torch.no_grad():
-        for i, (input, target) in enumerate(val_loader):
+        for i, (input, target) in enumerate(eval_loader):
             target = target.cuda()
             input_var = input.cuda()
             target_var = target.cuda()
@@ -364,7 +378,7 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
 def get_ranks(model):
 
     if args.method == 'switch':
-        switch_train = False
+        switch_train = args.switch_train
         if switch_train:
             ranks = resnet_switch_main()
         else:
