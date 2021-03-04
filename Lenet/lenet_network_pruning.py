@@ -287,7 +287,7 @@ def get_ranks(method, path_checkpoint):
     elif method == 'shapley':
         compute_combinations = args.comp_comb
         try:
-            combinationss = shapley_rank.shapley_rank(evaluate, net, "Lenet", dataset, args.k_num, compute_combinations)
+            combinationss = shapley_rank.shapley_rank(evaluate, net, "Lenet", dataset, compute_combinations, args.k_num)
         except KeyboardInterrupt:
             print('Interrupted')
             shapley_rank.file_check()
