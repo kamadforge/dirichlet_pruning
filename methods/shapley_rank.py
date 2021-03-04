@@ -12,13 +12,13 @@ def shapley_rank(evaluate, net, net_name, dataset, compute_combinations, criteri
     acc = evaluate(net, "test")
     # compute combinations/ characteristic function
 
-    os.makedirs("../methods/sv/%s/combinations", exist_ok=True)
+    os.makedirs(f"../methods/sv/{net_name}/combinations", exist_ok=True)
     shap_ranks=[]
     for name, param in net.named_parameters():
         if "weight" in name and "bn" not in name and "out" not in name:
             if not net_name == "Resnet" or (net_name == "Resnet" and "layer" in name):
                 global file_name, file_name_new
-                file_name = "../methods/sv/%s/combinations/combinations_pruning_%.2f_%s_%s" % (net_name, acc, dataset, name)
+                file_name = f"../methods/sv/{net_name}/combinations/combinations_pruning_{acc:.2f}_{dataset}_{name}"
                 file_name_new = file_name + "_new.txt"
                 file_old = file_name + ".txt"
 
