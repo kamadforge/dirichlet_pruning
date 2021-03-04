@@ -46,7 +46,8 @@ cwd = os.getcwd()
 if 'g0' in socket.gethostname() or 'p0' in socket.gethostname():
     #the cwd is where the sub file is so ranking/
     sys.path.append(os.path.join(cwd, "results_switch"))
-    path_compression = os.path.join(cwd, "results_compression")
+    path_compression = cwd
+    #path_compression = os.path.join(cwd, "results_compression")
     path_networktest = os.path.join(cwd, "results_networktest")
     path_switch = os.path.join(cwd, "results_switch")
     path_main= cwd
@@ -96,6 +97,7 @@ os.makedirs("checkpoint", exist_ok=True)
 args = parser.parse_args()
 print(args)
 #print(args.layer)
+print(torch.cuda.get_device_name(torch.cuda.current_device()))
 
 
 ################################################################################################
