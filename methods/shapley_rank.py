@@ -6,7 +6,7 @@ import os
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-def shapley_rank(evaluate, net, net_name, dataset, compute_combinations, criterion="dummy"):
+def shapley_rank(evaluate, net, net_name, dataset, compute_combinations, k_num, criterion="dummy"):
     path_file = "sv/Lenet/combinations"
     print("Computing Shapley rank in two stages")
     acc = evaluate(net, "test")
@@ -24,7 +24,7 @@ def shapley_rank(evaluate, net, net_name, dataset, compute_combinations, criteri
 
 
             if compute_combinations:
-                compute_combinations_lenet(True, net, net_name, name, evaluate, dataset, "zeroing")
+                compute_combinations_lenet(True, net, net_name, name, evaluate, dataset, k_num, "zeroing")
 
             # compute_combinations_random(False, net, evaluate)
             # compute shapley value
@@ -55,7 +55,7 @@ def file_check():
 
 
 # taken form ranking/results_compression/lenet_network_pruning_withcombinations.py
-def compute_combinations_lenet(file_write, net, net_name, layer, evaluate, dataset, perturbation_method):
+def compute_combinations_lenet(file_write, net, net_name, layer, evaluate, dataset, k_num, perturbation_method):
     print("1. Computing combinations")
 
     acc = evaluate(net, "test")
@@ -79,7 +79,7 @@ def compute_combinations_lenet(file_write, net, net_name, layer, evaluate, datas
             # get the alternating elements in the channel list to have the most combinations from the beginning and end first
             a = np.arange(1, param.shape[0])
             channel_list = [a[-i // 2] if i % 2 else a[i // 2] for i in range(len(a))]
-            channel_list=channel_list[:3]
+            channel_list=channel_list[:] if k_num==None else channel_list[:]
             #for r in range(1, param.shape[0]):  # produces the combinations of the elements in s
             for r in channel_list:
                 print(r)

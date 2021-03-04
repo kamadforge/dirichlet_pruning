@@ -29,6 +29,7 @@ arguments.add_argument("--switch_samps", default=150, type=int)
 arguments.add_argument("--switch_comb", default='train') #train, load
 #shapley
 arguments.add_argument("--comp_comb", default=False)
+arguments.add_argument("--k_num", default=None)
 
 arguments.add_argument("--dataset", default="mnist")
 arguments.add_argument("--early_stopping", default=500, type=int)
@@ -286,7 +287,7 @@ def get_ranks(method, path_checkpoint):
     elif method == 'shapley':
         compute_combinations = args.comp_comb
         try:
-            combinationss = shapley_rank.shapley_rank(evaluate, net, "Lenet", dataset, compute_combinations)
+            combinationss = shapley_rank.shapley_rank(evaluate, net, "Lenet", dataset, args.k_num, compute_combinations)
         except KeyboardInterrupt:
             print('Interrupted')
             shapley_rank.file_check()
