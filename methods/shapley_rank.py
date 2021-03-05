@@ -23,19 +23,19 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, compute_comb
                 file_old = file_name + ".txt"
 
 
-            if compute_combinations:
-                compute_combinations_lenet(True, net, net_name, name, evaluate, dataset, k_num, "zeroing")
+                if compute_combinations:
+                    compute_combinations_lenet(True, net, net_name, name, evaluate, dataset, k_num, "zeroing")
 
-            # compute_combinations_random(False, net, evaluate)
-            # compute shapley value
+                # compute_combinations_random(False, net, evaluate)
+                # compute shapley value
 
-            sample_num = 50
-            dic, nodes_num = readdata_notsampled(file_old, acc)
-            #compute the shapley value from the combinations
-            shap_arr = shapley_samp(dic, nodes_num, 1000)
-            lala=3
-            shap_rank = np.argsort(shap_arr)[::-1]
-            shap_ranks.append(shap_rank)
+                sample_num = 50
+                dic, nodes_num = readdata_notsampled(file_old, acc)
+                #compute the shapley value from the combinations
+                shap_arr = shapley_samp(dic, nodes_num, 1000)
+                lala=3
+                shap_rank = np.argsort(shap_arr)[::-1]
+                shap_ranks.append(shap_rank)
     return shap_ranks
 
 def file_check():

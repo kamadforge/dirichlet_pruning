@@ -43,7 +43,7 @@ parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet56',
                     ' (default: resnet56)')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
-parser.add_argument('--epochs', default=200, type=int, metavar='N',
+parser.add_argument('--epochs', default=2000, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
@@ -80,6 +80,7 @@ parser.add_argument('--method', default="shapley")
 
 #shapley
 parser.add_argument("--comp_comb", default=True)
+parser.add_argument("--k_num", default=None)
 # switch
 parser.add_argument("--switch_train", default=True)
 
@@ -162,11 +163,11 @@ def main():
                   .format(args.evaluate, 0))
             validate(model)
 
-            for name, param in model.named_parameters():
-                if "weight" in name and "bn" not in name and "linear" not in name:
-                    print(name)
-                    print(param.shape)
-                    print(torch.sum(param, axis=(0,2,3)))
+            # for name, param in model.named_parameters():
+            #     if "weight" in name and "bn" not in name and "linear" not in name:
+            #         print(name)
+            #         print(param.shape)
+            #         print(torch.sum(param, axis=(0,2,3)))
         else:
             print("=> no checkpoint found at '{}'".format(args.resume))
 
@@ -388,7 +389,7 @@ def get_ranks(model):
         compute_combinations = args.comp_comb
         try:
             #validate(val_loader, model, criterion)
-            ranks = shapley_rank.shapley_rank(validate, model, "Resnet", args.dataset, compute_combinations)
+            ranks = shapley_rank.shapley_rank(validate, model, "Resnet", os.path.split(args.resume)[1], args.dataset, compute_combinations, args.k_num)
         except KeyboardInterrupt:
             print('Interrupted')
             shapley_rank.file_check()
