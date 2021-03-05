@@ -6,7 +6,7 @@ import os
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-def shapley_rank(evaluate, net, net_name, dataset, compute_combinations, k_num, criterion="dummy"):
+def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, compute_combinations, k_num, criterion="dummy"):
     path_file = "sv/Lenet/combinations"
     print("Computing Shapley rank in two stages")
     acc = evaluate(net, "test")
@@ -18,7 +18,7 @@ def shapley_rank(evaluate, net, net_name, dataset, compute_combinations, k_num, 
         if "weight" in name and "bn" not in name and "out" not in name:
             if not net_name == "Resnet" or (net_name == "Resnet" and "layer" in name):
                 global file_name, file_name_new
-                file_name = f"../methods/sv/{net_name}/combinations/combinations_pruning_{acc:.2f}_{dataset}_{name}"
+                file_name = f"../methods/sv/{net_name}/combinations/combinations_pruning_{checkpoint_name}_{name}"
                 file_name_new = file_name + "_new.txt"
                 file_old = file_name + ".txt"
 
