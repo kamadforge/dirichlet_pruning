@@ -96,7 +96,7 @@ def compute_combinations_lenet(file_write, net, net_name, layer, evaluate, datas
                         param[combination[0]] = 0
                         if net_name is not "Resnet":
                             params_bias[combination] = 0
-                        accuracy = evaluate(net)
+                        accuracy = evaluate(net, "val")
                     # add noise to subset of channels (experimental feature)
                     # elif perturbation_method == "additive_noise":
                         # # norm_dist=torch.distributions.Normal(0,0.1)

@@ -85,6 +85,7 @@ parser.add_argument("--ranks_method", default='point') #point, integral
 parser.add_argument("--switch_trainranks", action='store_true')
 #
 parser.add_argument("--comp_comb", default=True)
+parser.add_argument("--k_num", default=None)
 #general
 parser.add_argument("--resume", default=False)
 parser.add_argument("--prune_bool", default=False)
@@ -523,7 +524,7 @@ def test(dataset):
     test_loss / (batch_idx + 1), 100. * correct / total, correct, total))
     return 100.0 * float(correct) / total
 
-def testval(net=net, default="val"):
+def testval(net=net, mode="val"):
     # for name, param in net.named_parameters():
     #     print (name)
     #     print (param)
@@ -533,8 +534,14 @@ def testval(net=net, default="val"):
     test_loss = 0
     correct = 0
     total = 0
+    if mode == "val":
+        evalloader = valloader
+    else:
+        evalloader = testloader
+    print(f"Evaluating on {mode} dataset")
+
     with torch.no_grad():
-        for batch_idx, (inputs, targets) in enumerate(valloader):
+        for batch_idx, (inputs, targets) in enumerate(evalloader):
             inputs, targets = inputs.to(device), targets.to(device)
             # outputs = net(inputs, batch_idx) #VISU
             outputs = net(inputs)
@@ -649,7 +656,7 @@ def prune_and_retrain(thresh):
         elif method == 'shapley':
             compute_combinations = args.comp_comb
             try:
-                combinationss = shapley_rank.shapley_rank(testval, net, "VGG", args.dataset, compute_combinations)
+                combinationss = shapley_rank.shapley_rank(testval, net, "VGG", os.path.split(model2load)[1], args.dataset, compute_combinations, args.k_num)
             except KeyboardInterrupt:
                 print('Interrupted')
                 shapley_rank.file_check()
