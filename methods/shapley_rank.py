@@ -3,40 +3,70 @@ import torch
 import numpy as np
 from itertools import chain, combinations
 import os
+from sklearn.linear_model import LinearRegression
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, compute_combinations, k_num, criterion="dummy"):
+def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k_num, method, sample_num, criterion="dummy"):
     path_file = "sv/Lenet/combinations"
     print("Computing Shapley rank in two stages")
     acc = evaluate(net, "test")
     # compute combinations/ characteristic function
 
     os.makedirs(f"../methods/sv/{net_name}/combinations", exist_ok=True)
+    os.makedirs(f"../methods/sv/{net_name}/randomsvs", exist_ok=True)
     shap_ranks=[]
-    for name, param in net.named_parameters():
-        if "weight" in name and "bn" not in name and "out" not in name:
-            if not net_name == "Resnet" or (net_name == "Resnet" and "layer" in name):
+    for layer_name, param in net.named_parameters():
+        if "weight" in layer_name and "bn" not in layer_name and "out" not in layer_name:
+            if not net_name == "Resnet" or (net_name == "Resnet" and "layer" in layer_name):
                 global file_name, file_name_new
-                file_name = f"../methods/sv/{net_name}/combinations/combinations_pruning_{checkpoint_name}_{name}"
+                file_name = f"../methods/sv/{net_name}/combinations/combinations_pruning_{checkpoint_name}_{layer_name}"
                 file_name_new = file_name + "_new.txt"
                 file_old = file_name + ".txt"
 
+                if method == "kern":
+                    shap_arr = kernshap(True, net, net_name, layer_name, evaluate, dataset, k_num, param, sample_num, "zeroing")
+                    print("shaps\n", shap_arr)
 
-                if compute_combinations:
-                    compute_combinations_lenet(True, net, net_name, name, evaluate, dataset, k_num, "zeroing")
+                if method == "random":
+                    if not file_load:
+                        shap_arr = randomshap(True, net, net_name, layer_name, evaluate, dataset, k_num, param, sample_num, "zeroing")
+                    else:
+                        shap_arr = file_read("random", net_name, layer_name)
 
-                # compute_combinations_random(False, net, evaluate)
-                # compute shapley value
+                if method == "compcomb":
+                    if not file_load:
+                        compute_combinations_lenet(True, net, net_name, layer_name, evaluate, dataset, k_num, "zeroing")
 
-                sample_num = 50
-                dic, nodes_num = readdata_notsampled(file_old, acc)
-                #compute the shapley value from the combinations
-                shap_arr = shapley_samp(dic, nodes_num, 1000)
-                lala=3
+                        sample_num = 50
+                        dic, nodes_num = readdata_notsampled(file_old, acc)
+                        #compute the shapley value from the combinations
+                        shap_arr = shapley_samp(dic, nodes_num, 2000)
+
+                if method == "exact_partial":
+                    if not file_load:
+                        compute_combinations_lenet(True, net, net_name, layer_name, evaluate, dataset, k_num, "zeroing")
+                    shap_arr = exact_partial(dic, nodes_num, acc)
+
+
                 shap_rank = np.argsort(shap_arr)[::-1]
                 shap_ranks.append(shap_rank)
     return shap_ranks
+
+
+def file_read(meth, net_name, layer):
+    samples_most=0
+    for fname in os.listdir(f'../methods/sv/{net_name}/randomsvs'):
+        core_name = f"{meth}shap_{layer}_samp_"
+        if core_name in fname:
+            samp_num_temp = fname.replace(core_name, "")
+            samp_num = samp_num_temp.replace(".npy", "")
+            samples_num = int(samp_num)
+            if samples_num>samples_most:
+                samples_most = samples_num
+    randsvs = np.load(f"../methods/sv/{net_name}/randomsvs/{meth}shap_{layer}_samp_{samples_most}.npy")
+    return randsvs
+
 
 def file_check():
     # check if new results have more lines than the previous one
@@ -60,8 +90,8 @@ def compute_combinations_lenet(file_write, net, net_name, layer, evaluate, datas
 
     acc = evaluate(net, "test")
     print("from other")
-    for name, param in net.named_parameters():
-        print(name)
+    # for name, param in net.named_parameters():
+    #     print(name)
     for name, param in net.named_parameters():
         print("Working on the layer: ", layer)
         # find a layer (weight and bias) where we compute rank
@@ -127,6 +157,114 @@ def compute_combinations_lenet(file_write, net, net_name, layer, evaluate, datas
             file_check()
 
 
+def exact_partial(dic, nodesNum, original_acc):
+
+    dic[tuple(np.arange(nodesNum))] = original_acc #if no nodes, zero accuracy
+    dic[()] = 0
+    m = list(dic.keys())
+    m.sort(key=lambda t: len(t), reverse=True)
+
+    shaps = np.zeros(nodesNum)
+    shaps_samps = np.zeros(nodesNum)
+    for elem in m:
+        #print("el", elem)
+        val1 = dic[elem]
+        for i in elem:
+            elem_minus = tuple(np.delete(elem, np.where(elem == i)))
+            if len(elem_minus) >1 and tuple(elem_minus) in m:
+                val2 = dic[elem_minus] - val1
+            elif len(elem_minus)==1:
+                val2 = dic[elem_minus]
+
+                shaps[i]+=val2
+                shaps_samps[i]+=1
+
+    svs = np.divide(shaps, nodesNum)
+    print("svs", svs)
+    return svs
+
+
+
+def check_combination(net, net_name, combination, param, evaluate, params_bias):
+    combination = torch.LongTensor(combination)
+    print(combination)
+    params_saved = param[combination].clone()
+    param_bias_saved = params_bias[combination].clone()
+
+    #param[combination[0]] = 0
+    param.data[combination] = 0
+    #print("Sum:\n ", torch.sum(param, axis=(1, 2, 3)))
+    if net_name is not "Resnet":
+        params_bias[combination] = 0
+    accuracy = evaluate(net, "val")
+
+    param.data[combination] = params_saved
+    if net_name is not "Resnet":
+        params_bias.data[combination] = param_bias_saved
+
+    return accuracy
+
+
+def kernshap(file_write, net, net_name, layer, evaluate, dataset, k_num, param, samples_num=10, perturbation_method=None):
+
+            if net_name is not "Resnet":
+                layerbias = layer[:-6] + "bias"  #:3 for lenet
+                params_bias = net.state_dict()[layerbias]
+
+            combinations_bin = np.zeros((samples_num, param.shape[0]))
+            accuracies = np.zeros(samples_num)
+            for i in range(samples_num):
+                randperm = np.random.permutation(param.shape[0])
+                randint = 0
+                while (randint == 0):
+                    randint = np.random.randint(param.shape[0])
+                randint_indextoremove = np.random.randint(randint)
+                combination = randperm[:randint]
+                combination2 = np.delete(combination, randint_indextoremove)
+                print(combination[randint_indextoremove])
+
+                acc = check_combination(net, net_name, combination, param, evaluate, params_bias)
+
+                combinations_bin[i, combination] = 1
+                accuracies[i]=acc
+
+            reg = LinearRegression().fit(combinations_bin, accuracies)
+
+            dumm=1
+            return reg.coef_
+
+
+def randomshap(file_write, net, net_name, layer, evaluate, dataset, k_num, param, samples_num=10,
+             perturbation_method=None):
+    if net_name is not "Resnet":
+        layerbias = layer[:-6] + "bias"  #:3 for lenet
+        params_bias = net.state_dict()[layerbias]
+
+    acc_val = evaluate(net, "val")
+
+    shaps = np.zeros(param.shape[0])
+    combinations_bin = np.zeros((samples_num, param.shape[0]))
+    accuracies = np.zeros(samples_num)
+    for i in range(samples_num):
+        randperm = np.random.permutation(param.shape[0])
+        last_acc  = acc_val
+        for j in range(param.shape[0]):
+            elem = randperm[j]
+            print(f"\n\nChannel: {elem}")
+            combination = randperm[:j+1]
+            acc = check_combination(net, net_name, combination, param, evaluate, params_bias)
+            marginal = last_acc - acc
+            last_acc = acc
+            shaps[elem]+= marginal
+
+        print(shaps)
+        randsvs = shaps/samples_num
+        print(randsvs)
+        print(np.argsort(randsvs)[::-1])
+        np.save(f"../methods/sv/{net_name}/randomsvs/randomshap_{layer}_samp_{samples_num}.npy", randsvs)
+    return randsvs
+
+
 
 # CHOOSES RANDOM COMBINATION and then removed one of the random nodes and computes accuracy for that node
 # from ranking/results_compression/network_pruning_withcombinstions.py
@@ -156,8 +294,7 @@ def compute_combinations_random(file_write, net, evaluate):
                 print(combination[randint_indextoremove])
 
                 if file_write:
-                    with open("results_running/combinations_pruning_mnist_%s_%s.txt" % (path[7:], layer),
-                              "a+") as textfile:
+                    with open("results_running/combinations_pruning_mnist_%s_%s.txt" % (path[7:], layer), "a+") as textfile:
                         textfile.write("%d\n" % randint_indextoremove)
                 for combination in [combination, combination2]:
                     # for combination in list(combinations(s, r)):

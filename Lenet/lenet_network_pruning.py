@@ -22,14 +22,16 @@ import argparse
 # PARAMS
 
 arguments=argparse.ArgumentParser()
-arguments.add_argument("--arch", default="7,10,40,20")
+arguments.add_argument("--arch", default="6,7,34,16")
 arguments.add_argument("--folder")
 arguments.add_argument("--method", default="shapley") #switch_itegral, swithc_point, fisher, l1, l2, random
 arguments.add_argument("--switch_samps", default=150, type=int)
 arguments.add_argument("--switch_comb", default='train') #train, load
 #shapley
-arguments.add_argument("--comp_comb", default=False)
+arguments.add_argument("--shap_method", default="random")
+arguments.add_argument("--load_file", default=1, type=int)
 arguments.add_argument("--k_num", default=None)
+arguments.add_argument("--shap_sample_num", default=10)
 
 arguments.add_argument("--dataset", default="mnist")
 arguments.add_argument("--early_stopping", default=500, type=int)
@@ -285,9 +287,10 @@ def get_ranks(method, path_checkpoint):
             combinationss.append(fisher_rank)
 
     elif method == 'shapley':
-        compute_combinations = args.comp_comb
+        load_file = args.load_file
+
         try:
-            combinationss = shapley_rank.shapley_rank(evaluate, net, "Lenet", os.path.split(path_checkpoint)[1], dataset, compute_combinations, args.k_num)
+            combinationss = shapley_rank.shapley_rank(evaluate, net, "Lenet", os.path.split(path_checkpoint)[1], dataset, load_file, args.k_num, args.shap_method, args.shap_sample_num)
         except KeyboardInterrupt:
             print('Interrupted')
             shapley_rank.file_check()
