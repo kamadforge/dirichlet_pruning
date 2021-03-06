@@ -84,8 +84,10 @@ parser.add_argument("--switch_epochs", default=1, type=int)
 parser.add_argument("--ranks_method", default='point') #point, integral
 parser.add_argument("--switch_trainranks", action='store_true')
 #
-parser.add_argument("--comp_comb", default=True)
+parser.add_argument("--shap_method", default="random")
+parser.add_argument("--load_file", default=1, type=int)
 parser.add_argument("--k_num", default=None)
+parser.add_argument("--shap_sample_num", default=10, type=int)
 #general
 parser.add_argument("--resume", default=False)
 parser.add_argument("--prune_bool", default=False)
@@ -654,9 +656,8 @@ def prune_and_retrain(thresh):
 
         ###############
         elif method == 'shapley':
-            compute_combinations = args.comp_comb
             try:
-                combinationss = shapley_rank.shapley_rank(testval, net, "VGG", os.path.split(model2load)[1], args.dataset, compute_combinations, args.k_num)
+                combinationss = shapley_rank.shapley_rank(testval, net, "VGG", os.path.split(model2load)[1], args.dataset, args.load_file, args.k_num, args.shap_method, args.shap_sample_num)
             except KeyboardInterrupt:
                 print('Interrupted')
                 shapley_rank.file_check()
