@@ -31,7 +31,7 @@ arguments.add_argument("--switch_comb", default='train') #train, load
 arguments.add_argument("--shap_method", default="random")
 arguments.add_argument("--load_file", default=1, type=int)
 arguments.add_argument("--k_num", default=None)
-arguments.add_argument("--shap_sample_num", default=10)
+arguments.add_argument("--shap_sample_num", default=10, type=int)
 
 arguments.add_argument("--dataset", default="mnist")
 arguments.add_argument("--early_stopping", default=500, type=int)
