@@ -79,8 +79,10 @@ parser.add_argument("--trainval_perc", default=0.9, type=float)
 parser.add_argument('--method', default="shapley")
 
 #shapley
-parser.add_argument("--comp_comb", default=True)
+parser.add_argument("--shap_method", default="random")
+parser.add_argument("--load_file", default=1, type=int)
 parser.add_argument("--k_num", default=None)
+parser.add_argument("--shap_sample_num", default=10, type=int)
 # switch
 parser.add_argument("--switch_train", default=True)
 
@@ -386,10 +388,9 @@ def get_ranks(model):
             ranks = np.load("../methods/switches/Resnet56/ranks.npy", allow_pickle=True)
 
     elif args.method == 'shapley':
-        compute_combinations = args.comp_comb
         try:
             #validate(val_loader, model, criterion)
-            ranks = shapley_rank.shapley_rank(validate, model, "Resnet", os.path.split(args.resume)[1], args.dataset, compute_combinations, args.k_num)
+            ranks = shapley_rank.shapley_rank(validate, model, "Resnet", os.path.split(args.resume)[1], args.dataset, args.load_file, args.k_num, args.shap_method, args.shap_sample_num)
         except KeyboardInterrupt:
             print('Interrupted')
             shapley_rank.file_check()

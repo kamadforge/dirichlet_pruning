@@ -189,7 +189,8 @@ def check_combination(net, net_name, combination, param, evaluate, params_bias):
     combination = torch.LongTensor(combination)
     print(combination)
     params_saved = param[combination].clone()
-    param_bias_saved = params_bias[combination].clone()
+    if net_name is not "Resnet":
+        param_bias_saved = params_bias[combination].clone()
 
     #param[combination[0]] = 0
     param.data[combination] = 0
@@ -239,6 +240,8 @@ def randomshap(file_write, net, net_name, layer, evaluate, dataset, k_num, param
     if net_name is not "Resnet":
         layerbias = layer[:-6] + "bias"  #:3 for lenet
         params_bias = net.state_dict()[layerbias]
+    else:
+        params_bias = None
 
     acc_val = evaluate(net, "val")
 
