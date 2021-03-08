@@ -76,7 +76,7 @@ parser.add_argument('--save-every', dest='save_every',
 parser.add_argument('--dataset', default="cifar")
 parser.add_argument("--trainval_perc", default=1., type=float)
 
-parser.add_argument('--rank_method', default="shapley")
+parser.add_argument("--rank_method", default="switches")
 
 #shapley
 parser.add_argument("--shap_method", default="random")
@@ -84,7 +84,7 @@ parser.add_argument("--load_file", default=1, type=int)
 parser.add_argument("--k_num", default=None)
 parser.add_argument("--shap_sample_num", default=10, type=int)
 # switch
-parser.add_argument("--switch_train", default=False)
+parser.add_argument("--switch_train", default=False, type=int)
 
 parser.add_argument("--prune", default=False)
 parser.add_argument("--pruned_arch", default="11,18,30")
@@ -395,12 +395,24 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
 
 def get_ranks(model):
 
-    if args.rank_method == 'switch':
+    if args.rank_method == 'switches':
         switch_train = args.switch_train
         if switch_train:
             ranks = resnet_switch_main()
         else:
             ranks = np.load("../methods/switches/Resnet56/ranks.npy", allow_pickle=True)
+            #renaming keys
+
+        new_ranks={}
+        for key in ranks[()].keys():
+            if "parameter2" in key:
+                new_key = key[:15]+".conv2.weight"
+                new_ranks[new_key] = ranks[()][key]
+            elif "parameter1" in key:
+                new_key = key[:15] + ".conv1.weight"
+                new_ranks[new_key] = ranks[()][key]
+
+        ranks = new_ranks
 
     elif args.rank_method == 'shapley':
         try:
@@ -430,7 +442,7 @@ def zero_params(model, ranks, thresholds):
                 #rank1 = ranks[()][param1_name]
                 rank1 = ranks[name]
                 channels_bad= rank1[thresholds[core_name]:] #to be removed
-                channels_bad = torch.Tensor(channels_bad.copy()).long()
+                channels_bad = channels_bad if torch.is_tensor(channels_bad) else torch.Tensor(channels_bad.copy()).long()
                 # param.data[:, channels_bad]=0
                 param.data[channels_bad, :] = 0
             # elif "conv2.weight" in name:
@@ -443,7 +455,7 @@ def zero_params(model, ranks, thresholds):
                 name_orig = core_name +".conv1.weight"
                 rank1 = ranks[name_orig]
                 channels_bad=rank1[thresholds[core_name]:]
-                channels_bad = torch.Tensor(channels_bad.copy()).long()
+                channels_bad = channels_bad if torch.is_tensor(channels_bad) else torch.Tensor(channels_bad.copy()).long()
                 param.data[channels_bad]=0
             # elif "conv2.bias" in name or "bn2.bias" in name or "bn2.weight" in name:
             #     rank2 = ranks[()][param2_name]
