@@ -15,7 +15,7 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
 
     os.makedirs(f"../methods/sv/{net_name}/combinations", exist_ok=True)
     os.makedirs(f"../methods/sv/{net_name}/randomsvs", exist_ok=True)
-    shap_ranks=[]
+    shap_ranks=[]; shap_ranks_dic = {}
     for layer_name, param in net.named_parameters():
         if "weight" in layer_name and "bn" not in layer_name and "out" not in layer_name:
             if not net_name == "Resnet" or (net_name == "Resnet" and "layer" in layer_name):
@@ -51,7 +51,8 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
 
                 shap_rank = np.argsort(shap_arr)[::-1]
                 shap_ranks.append(shap_rank)
-    return shap_ranks
+                shap_ranks_dic[layer_name]=shap_rank
+    return shap_ranks, shap_ranks_dic
 
 
 def file_read(meth, net_name, layer):

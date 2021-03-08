@@ -74,9 +74,9 @@ parser.add_argument('--save-every', dest='save_every',
                     help='Saves checkpoints at every specified number of epochs',
                     type=int, default=10)
 parser.add_argument('--dataset', default="cifar")
-parser.add_argument("--trainval_perc", default=0.9, type=float)
+parser.add_argument("--trainval_perc", default=1., type=float)
 
-parser.add_argument('--method', default="shapley")
+parser.add_argument('--rank_method', default="shapley")
 
 #shapley
 parser.add_argument("--shap_method", default="random")
@@ -84,10 +84,10 @@ parser.add_argument("--load_file", default=1, type=int)
 parser.add_argument("--k_num", default=None)
 parser.add_argument("--shap_sample_num", default=10, type=int)
 # switch
-parser.add_argument("--switch_train", default=True)
+parser.add_argument("--switch_train", default=False)
 
 parser.add_argument("--prune", default=False)
-parser.add_argument("--pruned_arch", default="13,31,45")
+parser.add_argument("--pruned_arch", default="11,18,30")
 
 
 best_prec1 = 0
@@ -154,6 +154,8 @@ def main():
                                                         milestones=[100, 150], last_epoch=args.start_epoch - 1)
 
     # optionally resume from a checkpoint
+    def resume_boolean():
+        dss = 6
     if args.resume_bool:
         if os.path.isfile(args.resume):
             print("=> loading checkpoint '{}'".format(args.resume))
@@ -169,7 +171,8 @@ def main():
             #     if "weight" in name and "bn" not in name and "linear" not in name:
             #         print(name)
             #         print(param.shape)
-            #         print(torch.sum(param, axis=(0,2,3)))
+                    # print(torch.sum(param, axis=(0,2,3)))
+            lala=9
         else:
             print("=> no checkpoint found at '{}'".format(args.resume))
 
@@ -225,9 +228,11 @@ def main():
         #             if ch_sum == 0:
         #                 print(ch)
 
+            #pruned and retrained
 
         if args.prune and args.resume_bool:
-            name_checkpoint = f"checkpoint_pruned_{args.dataset}_{args.pruned_arch}_{prec1:.2f}.th"
+            name = os.path.split(args.resume)[1]
+            name_checkpoint = f"{name[:-3]}_pruned_{args.rank_method}_to_{args.pruned_arch}_acc_{prec1:.2f}.th"
         else: #from scratch
             name_checkpoint = f"checkpoint_{args.dataset}_trainval_{args.trainval_perc}_acc_{prec1:.2f}.th"
 
@@ -244,6 +249,19 @@ def main():
         #     'state_dict': model.state_dict(),
         #     'best_prec1': best_prec1,
         # }, is_best, filename=os.path.join(args.save_dir, f'model_{prec1}.th'))
+
+
+def check_vals(model):
+    for name, param in model.named_parameters():
+        print(name, param.shape)
+        if "param" not in name and "layer" in name:
+            if "bn" in name:
+                sums = param
+            else:
+                sums = torch.sum(param, dim=(1,2,3))
+            empty_channels_num = torch.sum(sums == 0)
+            #print(name, empty_channels_num)
+
 
 
 def train(train_loader, model, criterion, optimizer, epoch):
@@ -279,10 +297,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
         optimizer.zero_grad()
         loss.backward()
 
-        # for name, param in model.named_parameters():
-        #     if "param" not in name:
-        #         #param.grad = None
-        #         print(param.grad.shape)
+        #print(check_vals(model))
         #print(model.module.layer1[0].conv1.weight.grad[0])
         #model.module.layer1[0].conv1.weight.grad[0] = 0
         optimizer.step()
@@ -380,17 +395,17 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
 
 def get_ranks(model):
 
-    if args.method == 'switch':
+    if args.rank_method == 'switch':
         switch_train = args.switch_train
         if switch_train:
             ranks = resnet_switch_main()
         else:
             ranks = np.load("../methods/switches/Resnet56/ranks.npy", allow_pickle=True)
 
-    elif args.method == 'shapley':
+    elif args.rank_method == 'shapley':
         try:
             #validate(val_loader, model, criterion)
-            ranks = shapley_rank.shapley_rank(validate, model, "Resnet", os.path.split(args.resume)[1], args.dataset, args.load_file, args.k_num, args.shap_method, args.shap_sample_num)
+            ranks_list, ranks = shapley_rank.shapley_rank(validate, model, "Resnet", os.path.split(args.resume)[1], args.dataset, args.load_file, args.k_num, args.shap_method, args.shap_sample_num)
         except KeyboardInterrupt:
             print('Interrupted')
             shapley_rank.file_check()
@@ -403,30 +418,37 @@ def get_ranks(model):
     return ranks
 
 def zero_params(model, ranks, thresholds):
-    for name, param in model.named_parameters():
+    for name, param in model.state_dict().items():
         #print(name)
+        #print(param)
         if "layer" in name:
         #if "layer3.8" in name and ("conv2" in name or "bn2" in name):
             # print(f"pruning layer {name}")
             core_name=name[:15]
             if "conv1.weight" in name:
-                param1_name=core_name+".parameter1"
-                rank1 = ranks[()][param1_name]
+                #param1_name=core_name+".parameter1"
+                #rank1 = ranks[()][param1_name]
+                rank1 = ranks[name]
                 channels_bad= rank1[thresholds[core_name]:] #to be removed
-                param.data[:, channels_bad]=0
-            elif "conv2.weight" in name:
-                param2_name = core_name+".parameter2"
-                rank2 = ranks[()][param2_name]
-                channels_bad=rank2[thresholds[core_name]:]
-                param.data[:, channels_bad]=0
-            elif "conv1.bias" in name or "bn1.bias" in name or "bn1.weight" in name:
-                rank1 = ranks[()][param1_name]
+                channels_bad = torch.Tensor(channels_bad.copy()).long()
+                # param.data[:, channels_bad]=0
+                param.data[channels_bad, :] = 0
+            # elif "conv2.weight" in name:
+            #     param2_name = core_name+".parameter2"
+            #     rank2 = ranks[()][param2_name]
+            #     channels_bad=rank2[thresholds[core_name]:]
+            #     param.data[:, channels_bad]=0
+            elif "conv1.bias" in name or "bn1.bias" in name or "bn1.weight" in name or "bn1.running_var" in name or "bn1.running_mean" in name:
+                #rank1 = ranks[()][param1_name]
+                name_orig = core_name +".conv1.weight"
+                rank1 = ranks[name_orig]
                 channels_bad=rank1[thresholds[core_name]:]
-                param.data[channels_bad] = 0
-            elif "conv2.bias" in name or "bn2.bias" in name or "bn2.weight" in name:
-                rank2 = ranks[()][param2_name]
-                channels_bad=rank2[thresholds[core_name]:]
-                param.data[channels_bad] = 0
+                channels_bad = torch.Tensor(channels_bad.copy()).long()
+                param.data[channels_bad]=0
+            # elif "conv2.bias" in name or "bn2.bias" in name or "bn2.weight" in name:
+            #     rank2 = ranks[()][param2_name]
+            #     channels_bad=rank2[thresholds[core_name]:]
+            #     param.data[channels_bad] = 0
 
 
 # module.layer3.8.bn2.weight torch.Size([64])
@@ -446,8 +468,8 @@ def prune_func(model):
         for i2 in range(0,9):
             thresholds[f"module.layer{i1}.{i2}"]=int(preserved[i1])
             #thresholds[f"layer{i1}.{i2}.2"] = preserved[i1]
-    thresholds[f"module.layer2.0"] = int(preserved[1])
-    thresholds[f"module.layer3.0"] = int(preserved[2])
+    thresholds[f"module.layer2.0"] = int(preserved[2])
+    thresholds[f"module.layer3.0"] = int(preserved[3])
 
     # get ranks
     print("Getting ranks")

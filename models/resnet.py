@@ -77,6 +77,7 @@ class BasicBlock(nn.Module):
 
     def forward(self, x):
         #print('inp', x.shape)
+        #print(self.conv1.weight.shape)
         out = F.relu(self.bn1(self.conv1(x)))
         #print('conv1', out.shape)
         #print('stride', self.conv1.stride)
