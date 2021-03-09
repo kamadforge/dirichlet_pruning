@@ -58,10 +58,12 @@ parser.add_argument('--save-every', dest='save_every',
                     type=int, default=10)
 best_prec1 = 0
 
-
-def main():
-    global args, best_prec1
-    args = parser.parse_args()
+#global args, best_prec1
+def main(args_passed):
+    global args
+    args = args_passed
+    #global args, best_prec1
+    #args = parser.parse_args()
 
 
     # Check the save_dir exists or not
@@ -132,7 +134,7 @@ def main():
         validate(val_loader, model, criterion)
         return
 
-    for epoch in range(args.start_epoch, args.epochs):
+    for epoch in range(args.start_epoch, 1):
 
         # train for one epoch
         print('current lr {:.5e}'.format(optimizer.param_groups[0]['lr']))
@@ -158,7 +160,7 @@ def main():
             'best_prec1': best_prec1,
         }, is_best, filename=os.path.join(args.save_dir, 'model.th'))
 
-        return ranks
+    return ranks
 
 
 def train(train_loader, model, criterion, optimizer, epoch):
@@ -247,7 +249,8 @@ def train(train_loader, model, criterion, optimizer, epoch):
             print(sorted_features)
     os.makedirs("../methods/switches/Resnet56/", exist_ok=True)
     np.save(f"../methods/switches/Resnet56/ranks_epi_{epoch}.npy", feature_ranks)
-    return feature_ranks
+
+    return param, feature_ranks
 
 
 def validate(val_loader, model, criterion):

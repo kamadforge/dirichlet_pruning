@@ -42,7 +42,7 @@ parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet56',
                     help='model architecture: ' + ' | '.join(model_names) +
                     ' (default: resnet56)')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
-                    help='number of data loading workers (default: 4)')
+                    help='number of data loading workers (default: 4)') #4
 parser.add_argument('--epochs', default=2000, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
@@ -197,6 +197,7 @@ def main():
         validate(model)
         return
 
+    old_checkpoint_name=""
     print("\nTraining\n")
     for epoch in range(args.start_epoch, args.epochs):
 
@@ -232,18 +233,24 @@ def main():
 
         if args.prune and args.resume_bool:
             name = os.path.split(args.resume)[1]
-            name_checkpoint = f"{name[:-3]}_pruned_{args.rank_method}_to_{args.pruned_arch}_acc_{prec1:.2f}.th"
+            name_checkpoint = f"{name[:-3]}_pruned_{args.rank_method}_to_{args.pruned_arch}_acc_{prec1:.2f}_epo_{epoch}.th"
         else: #from scratch
             name_checkpoint = f"checkpoint_{args.dataset}_trainval_{args.trainval_perc}_acc_{prec1:.2f}.th"
 
         #if epoch > 0 and epoch % args.save_every == 0 and is_best:
         if is_best:
+            filename_best = os.path.join(args.save_dir, name_checkpoint)
             save_checkpoint({
                 'epoch': epoch + 1,
                 'state_dict': model.state_dict(),
                 'best_prec1': best_prec1,
-            }, is_best, filename=os.path.join(args.save_dir, name_checkpoint))
-            print(f"Best saved to {os.path.join(args.save_dir, name_checkpoint)}\n")
+            }, is_best, filename=filename_best)
+
+            print(f"Best saved to {filename_best}\n")
+
+            if os.path.isfile(old_checkpoint_name):
+                os.remove(old_checkpoint_name)
+            old_checkpoint_name = filename_best
 
         # save_checkpoint({
         #     'state_dict': model.state_dict(),
@@ -398,19 +405,20 @@ def get_ranks(model):
     if args.rank_method == 'switches':
         switch_train = args.switch_train
         if switch_train:
-            ranks = resnet_switch_main()
+            ranks = resnet_switch_main(args)
         else:
-            ranks = np.load("../methods/switches/Resnet56/ranks.npy", allow_pickle=True)
+            ranks = np.load("../methods/switches/Resnet56/ranks_epi_4.npy", allow_pickle=True)
+            ranks = ranks[()]
             #renaming keys
 
         new_ranks={}
-        for key in ranks[()].keys():
+        for key in ranks.keys():
             if "parameter2" in key:
                 new_key = key[:15]+".conv2.weight"
-                new_ranks[new_key] = ranks[()][key]
+                new_ranks[new_key] = ranks[key]
             elif "parameter1" in key:
                 new_key = key[:15] + ".conv1.weight"
-                new_ranks[new_key] = ranks[()][key]
+                new_ranks[new_key] = ranks[key]
 
         ranks = new_ranks
 
@@ -429,6 +437,8 @@ def get_ranks(model):
 
     return ranks
 
+#in case of switches we will prune the first conv in block accou=rding to the rankings in the second
+
 def zero_params(model, ranks, thresholds):
     for name, param in model.state_dict().items():
         #print(name)
@@ -438,26 +448,38 @@ def zero_params(model, ranks, thresholds):
             # print(f"pruning layer {name}")
             core_name=name[:15]
             if "conv1.weight" in name:
+                if "2.0" in name:
+                    lala =7
                 #param1_name=core_name+".parameter1"
                 #rank1 = ranks[()][param1_name]
-                rank1 = ranks[name]
+                if args.rank_method == "switches":
+                    name_ch = name.replace("conv1", "conv2")
+                else:
+                    name_ch = name
+                rank1 = ranks[name_ch]
                 channels_bad= rank1[thresholds[core_name]:] #to be removed
                 channels_bad = channels_bad if torch.is_tensor(channels_bad) else torch.Tensor(channels_bad.copy()).long()
                 # param.data[:, channels_bad]=0
                 param.data[channels_bad, :] = 0
-            # elif "conv2.weight" in name:
-            #     param2_name = core_name+".parameter2"
-            #     rank2 = ranks[()][param2_name]
-            #     channels_bad=rank2[thresholds[core_name]:]
-            #     param.data[:, channels_bad]=0
+
             elif "conv1.bias" in name or "bn1.bias" in name or "bn1.weight" in name or "bn1.running_var" in name or "bn1.running_mean" in name:
                 #rank1 = ranks[()][param1_name]
                 name_orig = core_name +".conv1.weight"
-                rank1 = ranks[name_orig]
+                if args.rank_method == "switches":
+                    name_ch = name_orig.replace("conv1", "conv2")
+                else:
+                    name_ch = name_orig
+                rank1 = ranks[name_ch]
                 channels_bad=rank1[thresholds[core_name]:]
                 channels_bad = channels_bad if torch.is_tensor(channels_bad) else torch.Tensor(channels_bad.copy()).long()
                 param.data[channels_bad]=0
-            # elif "conv2.bias" in name or "bn2.bias" in name or "bn2.weight" in name:
+
+            # elif "conv2.weight" in name and args.ranks_method == "switches":
+            #     rank2 = ranks[name_orig]
+            #     channels_bad = rank2[thresholds[core_name]:]
+            #     param.data[:, channels_bad] = 0
+            #
+            # elif "conv2.bias" in name or "bn2.bias" in name or "bn2.weight" in name and args.rank_method == "switches":
             #     rank2 = ranks[()][param2_name]
             #     channels_bad=rank2[thresholds[core_name]:]
             #     param.data[channels_bad] = 0
