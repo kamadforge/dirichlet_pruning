@@ -133,7 +133,7 @@ model_structure = cfg['VGGKAMFULL']
 
 
 class VGG(nn.Module):
-    def __init__(self, vgg_name, switch_samps, hidden_dim):
+    def __init__(self, vgg_name, switch_samps, switch_init, hidden_dim):
         super(VGG, self).__init__()
         # self.features = self._make_layers(cfg[vgg_name])
         # self.classifier = nn.Linear(512, 10)
@@ -384,16 +384,16 @@ if dataset=="cifar":
 #     print(device)
 
 #if args.resume:
-def load_weights(net_all):
+def load_weights(net_all, path_switch_checkpoint=""):
     if (resume):
         # Load checkpoint.
         print('==> Resuming from checkpoint..')
         #assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
         if dataset=='cifar':
-            if args.path_switch_checkpoint=="None":
+            if path_switch_checkpoint=="":
                 path_switch_checkpoint=path_switch + '/checkpoint/ckpt_vgg16_%s.t7' % model_parameters
             else:
-                path_switch_checkpoint=args.path_switch_checkpoint
+                path_switch_checkpoint=path_switch_checkpoint
             checkpoint = torch.load(path_switch_checkpoint, map_location=lambda storage, loc: storage)
             net_all.load_state_dict(checkpoint['net'], strict=False)
 
@@ -473,19 +473,19 @@ def train(epoch, net_all, optimizer, hidden_dim, switch_layer):
     print("max: %.4f, min: %.4f" % (torch.max(S), torch.min(S)))
     # print(torch.argsort(S))
     ranks_sorted = np.argsort(S.cpu().detach().numpy())[::-1]
-    if epoch == epoch_to_save and save_switches_params:
-        torch.save(S, '%s/%s_new_alpha%.2f_switchinit%.2f_%s_ep%d.pt' % (save_path, model_parameters, alpha, switch_init, switch_layer, epoch))
-        if save_switches_text:
-            with open(save_textfile, "a+") as file:
-                file.write(switch_layer+"\n\n")
-                file.write('\nEpoch: %d\n' % epoch)
-                file.write("alpha:%.2f switchinit:%.2f\n" % (alpha, switch_init))
-                file.write('Loss: %.3f | Acc: %.3f%% (%d/%d)\n' % (train_loss / (batch_idx + 1), 100. * correct / total, correct, total))
-                file.write('BCE: %.3f, KLD: %.3f, KLD_discounted: %.3f\n' % (BCE, KLD, KLD_discounted))
-                file.write(" ".join(str(item) for item in S.cpu().detach().numpy()))
-                file.write("\nmax: %.4f, min: %.4f\n" % (torch.max(S), torch.min(S)))
-                file.write(",".join(map(str, ranks_sorted)))
-                file.write("\n\n\n")
+    # if epoch == epoch_to_save and save_switches_params:
+    #     torch.save(S, '%s/%s_new_alpha%.2f_switchinit%.2f_%s_ep%d.pt' % (save_path, model_parameters, alpha, switch_init, switch_layer, epoch))
+    #     if save_switches_text:
+    #         with open(save_textfile, "a+") as file:
+    #             file.write(switch_layer+"\n\n")
+    #             file.write('\nEpoch: %d\n' % epoch)
+    #             file.write("alpha:%.2f switchinit:%.2f\n" % (alpha, switch_init))
+    #             file.write('Loss: %.3f | Acc: %.3f%% (%d/%d)\n' % (train_loss / (batch_idx + 1), 100. * correct / total, correct, total))
+    #             file.write('BCE: %.3f, KLD: %.3f, KLD_discounted: %.3f\n' % (BCE, KLD, KLD_discounted))
+    #             file.write(" ".join(str(item) for item in S.cpu().detach().numpy()))
+    #             file.write("\nmax: %.4f, min: %.4f\n" % (torch.max(S), torch.min(S)))
+    #             file.write(",".join(map(str, ranks_sorted)))
+    #             file.write("\n\n\n")
 
 
     print(",".join(map(str, ranks_sorted)))
@@ -598,14 +598,19 @@ def test(epoch, net_all, switch_layer):
 #file_write=True
 #compute_combinations_random(file_write)
 
-def main(switch_layer, epochs_num, switch_samps):
+def main(switch_layer, epochs_num, switch_samps, alpha_param, switch_init_param, file_path):
+
+
+    global alpha, switch_init
+    alpha=alpha_param
+    switch_init=switch_init_param
 
     training=True
     hidden_dim = model_structure[int(switch_layer[4:])]  # it's a number of parameters we want to estimate, e.g. # conv1 filters
 
     # Model
     print('==> Building model..')
-    net2 = VGG('VGG16', switch_samps, hidden_dim)
+    net2 = VGG('VGG16', switch_samps, switch_init, hidden_dim)
     net2 = net2.to(device)
 
     if device == 'cuda':
@@ -621,11 +626,6 @@ def main(switch_layer, epochs_num, switch_samps):
 
     if training:
         optimizer = optim.SGD(net2.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
-
-        # for i1 in [0.1, 1, 10]:dssd dsd
-        #     for i2 in [0.1, 1, 10]:
-        #         switch_init=i1
-        #         alpha=i2
 
         if 1:
             if 1:

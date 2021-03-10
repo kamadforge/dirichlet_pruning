@@ -84,16 +84,16 @@ parser.add_argument("--trainval_perc", default=0.8, type=float)
 parser.add_argument("--switch_samps", default=3, type=int)
 parser.add_argument("--switch_epochs", default=1, type=int)
 parser.add_argument("--ranks_method", default='point') #point, integral
-parser.add_argument("--switch_trainranks", action='store_true')
+parser.add_argument("--switch_trainranks", default=1, type=int)
 #shapley
 parser.add_argument("--shap_method", default="random")
 parser.add_argument("--load_file", default=1, type=int)
 parser.add_argument("--k_num", default=None)
 parser.add_argument("--shap_sample_num", default=10, type=int)
 #general
-parser.add_argument("--resume", default=False)
-parser.add_argument("--prune_bool", default=False)
-parser.add_argument("--retrain_bool", default=False)
+parser.add_argument("--resume", default=False, type=int)
+parser.add_argument("--prune_bool", default=False, type=int)
+parser.add_argument("--retrain_bool", default=False, type=int)
 parser.add_argument("--model", default="None")
 # parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 save_accuracy=65.0
@@ -311,7 +311,7 @@ def prune_and_retrain(thresh):
         print("\nPruning the model\n")
         print("architecture for pruning: ", args.pruned_arch)
         if method == 'switch':
-            epochs_num=1
+            epochs_num=args.switch_epochs
             num_samps_for_switch = args.switch_samps
             ranks_method=args.ranks_method
             #path =
@@ -330,7 +330,7 @@ def prune_and_retrain(thresh):
                 print(ranks_method)
                 if args.switch_trainranks:
                     print("\nTraining switches\n")
-                    ranks = script_vgg("switch_" + ranks_method, epochs_num, num_samps_for_switch)
+                    ranks = script_vgg("switch_" + ranks_method, epochs_num, path_main, args.dataset, num_samps_for_switch)
                     combinationss = ranks['combinationss']
                 else:
                     print("\nLoading switches\n")
@@ -341,7 +341,7 @@ def prune_and_retrain(thresh):
                 print(ranks_method)
                 if args.switch_trainranks:
                     print("Training switches\n")
-                    ranks = script_vgg("switch_"+ranks_method, epochs_num)
+                    ranks = script_vgg("switch_"+ranks_method, epochs_num, path_main, args.dataset)
                     combinationss = ranks['combinationss']
                 else:
                     print("Loading switches")
