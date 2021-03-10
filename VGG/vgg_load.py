@@ -281,8 +281,11 @@ def load_model(test_bool=True):
 
 ######################################################
 # SAVE experiment
+global old_checkpoint
+old_checkpoint=""
 
 def save_checkpoint(epoch, acc, best_acc, remaining=0):
+    global old_checkpoint
     # Save checkpoint.
     # acc = test(epoch)
     if acc > best_acc:
@@ -293,10 +296,17 @@ def save_checkpoint(epoch, acc, best_acc, remaining=0):
         if acc > save_accuracy:
             print(f'Saving.. to {path_compression}/checkpoint/')
             if args.pruned_arch == 0:  # regular training
-                torch.save(state, path_compression+'/checkpoint/ckpt_vgg16_trainval_{}_acc_{}.t7'.format(args.trainval_perc, acc))
+                file_path_save = path_compression+'/checkpoint/ckpt_vgg16_trainval_{}_acc_{}.t7'.format(args.trainval_perc, acc)
+                torch.save(state, file_path_save)
             else:
                 file_loaded = os.path.split(model2load)[1]
-                torch.save(state, path_compression+f'/checkpoint/{file_loaded}_pruned{args.pruned_arch}_acc_{acc}.t7')
+                file_path_save = path_compression+f'/checkpoint/{file_loaded}_pruned{args.pruned_arch}_acc_{acc}.t7'
+                torch.save(state, file_path_save)
+
+            if os.path.isfile(old_checkpoint):
+                os.remove(old_checkpoint)
+            old_checkpoint = file_path_save
+
         best_acc = acc
     return best_acc
 
@@ -528,7 +538,7 @@ def prune_and_retrain(thresh):
             if (accuracy <= best_accuracy):
                 stop = stop + 1
             else:
-                if accuracy > 90.5:
+                if accuracy > 50.5:
                     # compares accuracy and best_accuracy by itself again
                     best_accuracy = save_checkpoint(epoch, accuracy, best_accuracy, args.pruned_arch)
                 print("Best updated")
