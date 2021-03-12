@@ -382,20 +382,27 @@ def threshold_prune_and_retrain(combinationss, thresh):
     ######################################################################################
     # PRUNE
     if prune_bool:
-        it = 0
-        for name, param in net.named_parameters():
-            print(name)
-            if (("c" in name) or ("f" in name)) and ("weight" in name):
-                it += 1
-                param.data[combinationss[it - 1]] = 0
-                # print(param.data)
-            if (("c" in name) or ("f" in name)) and ("bias" in name):
-                param.data[combinationss[it - 1]] = 0
-                # print(param.data)
-            if ("bn" in name) and ("weight" in name):
-                param.data[combinationss[it - 1]] = 0
-            if ("bn" in name) and ("bias" in name):
-                param.data[combinationss[it - 1]] = 0
+        def zero_param():
+            it = 0
+            for name, param in net.named_parameters():
+                print(name)
+                if (("c" in name) or ("f" in name)) and ("weight" in name):
+                    it += 1
+                    param.data[combinationss[it - 1]] = 0
+                    # print(param.data)
+                if (("c" in name) or ("f" in name)) and ("bias" in name):
+                    param.data[combinationss[it - 1]] = 0
+                    # print(param.data)
+                if ("bn" in name) and ("weight" in name):
+                    param.data[combinationss[it - 1]] = 0
+                if ("bn" in name) and ("bias" in name):
+                    param.data[combinationss[it - 1]] = 0
+                if ("bn" in name) and ("running_mean" in name):
+                    param.data[combinationss[it - 1]] = 0
+                if ("bn" in name) and ("running_var" in name):
+                    param.data[combinationss[it - 1]] = 0
+
+        zero_param()
         print("After pruning")
         acc=evaluate()
 
