@@ -187,6 +187,7 @@ def train(thresh=[-1,-1,-1,-1]):
     entry = np.zeros(3);
     best_model = -1;
     early_stopping = args.early_stopping
+    old_checkpoint=""
     while (stop < early_stopping):
     #for i in range(5):
         epoch = epoch + 1
@@ -221,16 +222,21 @@ def train(thresh=[-1,-1,-1,-1]):
             best_optim = optimizer.state_dict()
 
             if save:
-                if retrain:
-                    if best_accuracy > save_accuracy:
+                if best_accuracy > save_accuracy:
+                    if retrain:
                         save_path = f"{path_checkpoint_save_retrain}_retrained_epo_{epoch}_prunedto_{thresh[0]}_{thresh[1]}_{thresh[2]}_{thresh[3]}_acc_{best_accuracy}"
                         torch.save({'model_state_dict': best_model, 'optimizer_state_dict': best_optim}, save_path)
                         print(f"Saving checkpoint to {save_path}")
-                else:
-                    if best_accuracy > save_accuracy:
+                    else:
                         save_path = f"{path_checkpoint_save_scratch}/{dataset}_trainval_{args.trainval_perc}_epo_{epoch}_acc_{best_accuracy}"
                         torch.save({'model_state_dict': best_model, 'optimizer_state_dict': best_optim}, save_path)
                         print(f"Saving checkpoint to {save_path}")
+
+                    if os.path.isfile(old_checkpoint):
+                        os.remove(old_checkpoint)
+                    old_checkpoint = save_path
+
+
             entry[0] = accuracy;
             entry[1] = loss
     print(loss.item())
