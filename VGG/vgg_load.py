@@ -43,16 +43,16 @@ from models import vgg
 # PATH
 
 cwd = os.getcwd()
-if 'g0' in socket.gethostname() or 'p0' in socket.gethostname():
-    #the cwd is where the sub file is so ranking/
-    sys.path.append(os.path.join(cwd, "results_switch"))
-    path_compression = cwd
-    #path_compression = os.path.join(cwd, "results_compression")
-    path_networktest = os.path.join(cwd, "results_networktest")
-    path_switch = os.path.join(cwd, "results_switch")
-    path_main= cwd
-    print("path_main: ", path_main)
-else:
+#if 'g0' in socket.gethostname() or 'p0' in socket.gethostname():
+#    #the cwd is where the sub file is so ranking/
+#    sys.path.append(os.path.join(cwd, "results_switch"))
+#    path_compression = cwd
+#    #path_compression = os.path.join(cwd, "results_compression")
+#    path_networktest = os.path.join(cwd, "results_networktest")
+#    path_switch = os.path.join(cwd, "results_switch")
+#    path_main= cwd
+#    print("path_main: ", path_main)
+if 1:
     #the cwd is results_compression
     parent_path = os.path.abspath('..')
     sys.path.append(os.path.join(parent_path, "results_switch"))
@@ -513,7 +513,7 @@ def prune_and_retrain(thresh):
         stop = 0;
         epoch = 0;
         best_accuracy = 0;
-        early_stopping = 100
+        early_stopping = 500
         optimizer = optim.SGD(net.parameters(), lr=0.0001, momentum=0.9, weight_decay=5e-4)
         while (stop < early_stopping):
             epoch = epoch + 1
