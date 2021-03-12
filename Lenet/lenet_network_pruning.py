@@ -36,7 +36,7 @@ arguments.add_argument("--shap_sample_num", default=10, type=int)
 arguments.add_argument("--dataset", default="mnist")
 arguments.add_argument("--early_stopping", default=500, type=int)
 arguments.add_argument("--batch_size", default=105, type=int)
-arguments.add_argument("--trainval_perc", default=0.8, type=float)
+arguments.add_argument("--trainval_perc", default=0.9, type=float)
 
 arguments.add_argument("--resume", default=False)
 arguments.add_argument("--prune_bool", default=False)

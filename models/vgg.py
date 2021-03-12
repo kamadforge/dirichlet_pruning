@@ -20,7 +20,8 @@ class VGG(nn.Module):
     def __init__(self, arch=cfg['VGG15']):
         super(VGG, self).__init__()
 
-        cfg_arch=arch
+        self.cfg_arch=arch
+        cfg_arch=self.cfg_arch
 
         self.c1 = nn.Conv2d(3, cfg_arch[0], 3, padding=1)
         self.bn1 = nn.BatchNorm2d(cfg_arch[0], eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
@@ -102,7 +103,7 @@ class VGG(nn.Module):
         output = f.relu(self.bn13(self.c13(output)))
         output = self.mp5(output)
 
-        output = output.view(-1, cfg['VGG15'][13])
+        output = output.view(-1, self.cfg_arch[12])
         output = self.l1(output)
         output = self.l3(output)
 
