@@ -28,15 +28,15 @@ arguments.add_argument("--method", default="shapley") #switch_itegral, swithc_po
 arguments.add_argument("--switch_samps", default=150, type=int)
 arguments.add_argument("--switch_comb", default='train') #train, load
 #shapley
-arguments.add_argument("--shap_method", default="random")
+arguments.add_argument("--shap_method", default="combin")
 arguments.add_argument("--load_file", default=1, type=int)
-arguments.add_argument("--k_num", default=None)
-arguments.add_argument("--shap_sample_num", default=10, type=int)
+arguments.add_argument("--k_num", default=1)
+arguments.add_argument("--shap_sample_num", default=2, type=int)
 
 arguments.add_argument("--dataset", default="mnist")
 arguments.add_argument("--early_stopping", default=500, type=int)
 arguments.add_argument("--batch_size", default=105, type=int)
-arguments.add_argument("--trainval_perc", default=0.9, type=float)
+arguments.add_argument("--trainval_perc", default=0.8, type=float)
 
 arguments.add_argument("--resume", default=False)
 arguments.add_argument("--prune_bool", default=False)
@@ -383,7 +383,7 @@ def threshold_prune_and_retrain(combinationss, thresh):
         combinationss[i] = torch.LongTensor(combinationss[i][thresh[i]:].copy())
     print("\n\nPrunedto:%d_%d_%d_%d\n" % (thresh[0], thresh[1], thresh[2], thresh[3]))
     print("Channels pruned: ")
-    print(combinationss)
+    #print(combinationss)
 
     ######################################################################################
     # PRUNE
@@ -391,7 +391,7 @@ def threshold_prune_and_retrain(combinationss, thresh):
         def zero_param():
             it = 0
             for name, param in net.named_parameters():
-                print(name)
+                #print(name)
                 if (("c" in name) or ("f" in name)) and ("weight" in name):
                     it += 1
                     param.data[combinationss[it - 1]] = 0
@@ -475,10 +475,10 @@ if resume:
         methods = [args.method]
         for method in methods:
             print("\n\n %s \n" % method)
-            combinationss = get_ranks(method, path_checkpoint_load_ret);
-            print(combinationss)
-            acc = threshold_prune_and_retrain(combinationss, [pruned_arch['c1'], pruned_arch['c3'], pruned_arch['c5'],
-                                                              pruned_arch['f6']])
+            combinationss, combinationss_dic = get_ranks(method, path_checkpoint_load_ret);
+            for comb in combinationss:
+                print(comb)
+            acc = threshold_prune_and_retrain(combinationss, [pruned_arch['c1'], pruned_arch['c3'], pruned_arch['c5'],pruned_arch['f6']])
             accs[method] = acc
 
 if resume == False and prune_bool == False and retrain == False:
