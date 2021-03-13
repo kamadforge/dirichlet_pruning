@@ -4,10 +4,25 @@ import numpy as np
 from itertools import chain, combinations
 import os
 from sklearn.linear_model import LinearRegression
+from collections import OrderedDict
+from operator import itemgetter
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k_num, method, sample_num, criterion="dummy"):
+def oracle(dic, size):
+
+    keys = list(dic.keys())
+    mm = [i for i in keys if len(i) == size]
+    lal = {k: dic[k] for k in mm}
+    d = OrderedDict(sorted(lal.items(), key=itemgetter(1), reverse=True))
+    d_keys = list(d)
+    d_values = list(d.values())
+
+    return d_keys[:5], d_values[:5]
+
+
+
+def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k_num, method, sample_num, layer=None, criterion="dummy"):
     path_file = "sv/Lenet/combin"
     print("Computing Shapley rank in two stages")
     print(f"Shapley method: {method}")
@@ -18,6 +33,12 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
 
     shap_ranks=[]; shap_ranks_dic = {}
     for layer_name, param in net.named_parameters():
+        if layer != None:
+            if layer==layer_name:
+                pass
+            else:
+                continue
+
         if "weight" in layer_name and "bn" not in layer_name and "out" not in layer_name:
             if not net_name == "Resnet" or (net_name == "Resnet" and "layer" in layer_name):
                 global file_name, file_name_new
@@ -50,7 +71,8 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
                     dic, nodes_num = readdata_notsampled(file_old, acc)
                         #compute the shapley value from the combinations
                         #shap_arr = shapley_samp(dic, nodes_num, 2000)
-
+                    set_oracle, val_oracle = oracle(dic, 7)
+                    print(set_oracle, val_oracle)
                     # if method == "exact":
                     #     if not file_load:
                     #         compute_combinations_lenet(True, net, net_name, layer_name, evaluate, dataset, k_num, "zeroing")
@@ -237,6 +259,7 @@ def kernshap(file_write, net, net_name, layer, evaluate, dataset, k_num, param, 
             combinations_bin = np.zeros((samples_num, param.shape[0]))
             accuracies = np.zeros(samples_num)
             for i in range(samples_num):
+                print(f"samp: {i}")
                 randperm = np.random.permutation(param.shape[0])
                 randint = 0
                 while (randint == 0):
