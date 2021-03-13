@@ -30,7 +30,7 @@ arguments.add_argument("--switch_comb", default='train') #train, load
 #shapley
 arguments.add_argument("--shap_method", default="combin")
 arguments.add_argument("--load_file", default=1, type=int)
-arguments.add_argument("--k_num", default=1)
+arguments.add_argument("--k_num", default=None)
 arguments.add_argument("--shap_sample_num", default=2, type=int)
 
 arguments.add_argument("--dataset", default="mnist")
