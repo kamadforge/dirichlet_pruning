@@ -30,15 +30,9 @@ arguments.add_argument("--switch_comb", default='train') #train, load
 arguments.add_argument("--layer", default="c3.weight")
 #shapley
 arguments.add_argument("--shap_method", default="combin")
-<<<<<<< HEAD
 arguments.add_argument("--load_file", default=1, type=int)
 arguments.add_argument("--k_num", default=None)
 arguments.add_argument("--shap_sample_num", default=2, type=int)
-=======
-arguments.add_argument("--load_file", default=0, type=int)
-arguments.add_argument("--k_num", default=None)
-arguments.add_argument("--shap_sample_num", default=100, type=int)
->>>>>>> 46ee2ee8074e48e664836fb00b7b7f667c31025b
 
 arguments.add_argument("--dataset", default="mnist")
 arguments.add_argument("--early_stopping", default=500, type=int)
