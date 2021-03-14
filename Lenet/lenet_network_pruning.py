@@ -27,11 +27,12 @@ arguments.add_argument("--folder")
 arguments.add_argument("--method", default="shapley") #switch_itegral, swithc_point, fisher, l1, l2, random
 arguments.add_argument("--switch_samps", default=150, type=int)
 arguments.add_argument("--switch_comb", default='train') #train, load
+arguments.add_argument("--layer", default="c3.weight")
 #shapley
-arguments.add_argument("--shap_method", default="random")
+arguments.add_argument("--shap_method", default="combin")
 arguments.add_argument("--load_file", default=1, type=int)
 arguments.add_argument("--k_num", default=None)
-arguments.add_argument("--shap_sample_num", default=10, type=int)
+arguments.add_argument("--shap_sample_num", default=2, type=int)
 
 arguments.add_argument("--dataset", default="mnist")
 arguments.add_argument("--early_stopping", default=500, type=int)
@@ -42,8 +43,9 @@ arguments.add_argument("--resume", default=False)
 arguments.add_argument("--prune_bool", default=False)
 arguments.add_argument("--retrain", default=False)
 
-arguments.add_argument("--path_checkpoint_load")
+arguments.add_argument("--path_checkpoint_load", default="checkpoint/scratch/mnist/mnist_trainval_0.8_epo_424_acc_99.05")
 arguments.add_argument("--path_checkpoint_save", default="checkpoint")
+
 
 args=arguments.parse_args()
 print(args)
@@ -187,6 +189,7 @@ def train(thresh=[-1,-1,-1,-1]):
     entry = np.zeros(3);
     best_model = -1;
     early_stopping = args.early_stopping
+    old_checkpoint=""
     while (stop < early_stopping):
     #for i in range(5):
         epoch = epoch + 1
@@ -221,16 +224,21 @@ def train(thresh=[-1,-1,-1,-1]):
             best_optim = optimizer.state_dict()
 
             if save:
-                if retrain:
-                    if best_accuracy > save_accuracy:
+                if best_accuracy > save_accuracy:
+                    if retrain:
                         save_path = f"{path_checkpoint_save_retrain}_retrained_epo_{epoch}_prunedto_{thresh[0]}_{thresh[1]}_{thresh[2]}_{thresh[3]}_acc_{best_accuracy}"
                         torch.save({'model_state_dict': best_model, 'optimizer_state_dict': best_optim}, save_path)
                         print(f"Saving checkpoint to {save_path}")
-                else:
-                    if best_accuracy > save_accuracy:
+                    else:
                         save_path = f"{path_checkpoint_save_scratch}/{dataset}_trainval_{args.trainval_perc}_epo_{epoch}_acc_{best_accuracy}"
                         torch.save({'model_state_dict': best_model, 'optimizer_state_dict': best_optim}, save_path)
                         print(f"Saving checkpoint to {save_path}")
+
+                    if os.path.isfile(old_checkpoint):
+                        os.remove(old_checkpoint)
+                    old_checkpoint = save_path
+
+
             entry[0] = accuracy;
             entry[1] = loss
     print(loss.item())
@@ -290,7 +298,7 @@ def get_ranks(method, path_checkpoint):
         load_file = args.load_file
 
         try:
-            combinationss = shapley_rank.shapley_rank(evaluate, net, "Lenet", os.path.split(path_checkpoint)[1], dataset, load_file, args.k_num, args.shap_method, args.shap_sample_num)
+            combinationss = shapley_rank.shapley_rank(evaluate, net, "Lenet", os.path.split(path_checkpoint)[1], dataset, load_file, args.k_num, args.shap_method, args.shap_sample_num, args.layer)
         except KeyboardInterrupt:
             print('Interrupted')
             shapley_rank.file_check()
@@ -377,25 +385,32 @@ def threshold_prune_and_retrain(combinationss, thresh):
         combinationss[i] = torch.LongTensor(combinationss[i][thresh[i]:].copy())
     print("\n\nPrunedto:%d_%d_%d_%d\n" % (thresh[0], thresh[1], thresh[2], thresh[3]))
     print("Channels pruned: ")
-    print(combinationss)
+    #print(combinationss)
 
     ######################################################################################
     # PRUNE
     if prune_bool:
-        it = 0
-        for name, param in net.named_parameters():
-            print(name)
-            if (("c" in name) or ("f" in name)) and ("weight" in name):
-                it += 1
-                param.data[combinationss[it - 1]] = 0
-                # print(param.data)
-            if (("c" in name) or ("f" in name)) and ("bias" in name):
-                param.data[combinationss[it - 1]] = 0
-                # print(param.data)
-            if ("bn" in name) and ("weight" in name):
-                param.data[combinationss[it - 1]] = 0
-            if ("bn" in name) and ("bias" in name):
-                param.data[combinationss[it - 1]] = 0
+        def zero_param():
+            it = 0
+            for name, param in net.named_parameters():
+                #print(name)
+                if (("c" in name) or ("f" in name)) and ("weight" in name):
+                    it += 1
+                    param.data[combinationss[it - 1]] = 0
+                    # print(param.data)
+                if (("c" in name) or ("f" in name)) and ("bias" in name):
+                    param.data[combinationss[it - 1]] = 0
+                    # print(param.data)
+                if ("bn" in name) and ("weight" in name):
+                    param.data[combinationss[it - 1]] = 0
+                if ("bn" in name) and ("bias" in name):
+                    param.data[combinationss[it - 1]] = 0
+                if ("bn" in name) and ("running_mean" in name):
+                    param.data[combinationss[it - 1]] = 0
+                if ("bn" in name) and ("running_var" in name):
+                    param.data[combinationss[it - 1]] = 0
+
+        zero_param()
         print("After pruning")
         acc=evaluate()
 
@@ -462,10 +477,11 @@ if resume:
         methods = [args.method]
         for method in methods:
             print("\n\n %s \n" % method)
-            combinationss = get_ranks(method, path_checkpoint_load_ret);
-            print(combinationss)
-            acc = threshold_prune_and_retrain(combinationss, [pruned_arch['c1'], pruned_arch['c3'], pruned_arch['c5'],
-                                                              pruned_arch['f6']])
+            combinationss, combinationss_dic = get_ranks(method, path_checkpoint_load_ret);
+            print("\nRanking:")
+            for comb in combinationss:
+                print(comb)
+            acc = threshold_prune_and_retrain(combinationss, [pruned_arch['c1'], pruned_arch['c3'], pruned_arch['c5'],pruned_arch['f6']])
             accs[method] = acc
 
 if resume == False and prune_bool == False and retrain == False:

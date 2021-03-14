@@ -43,16 +43,16 @@ from models import vgg
 # PATH
 
 cwd = os.getcwd()
-if 'g0' in socket.gethostname() or 'p0' in socket.gethostname():
-    #the cwd is where the sub file is so ranking/
-    sys.path.append(os.path.join(cwd, "results_switch"))
-    path_compression = cwd
-    #path_compression = os.path.join(cwd, "results_compression")
-    path_networktest = os.path.join(cwd, "results_networktest")
-    path_switch = os.path.join(cwd, "results_switch")
-    path_main= cwd
-    print("path_main: ", path_main)
-else:
+#if 'g0' in socket.gethostname() or 'p0' in socket.gethostname():
+#    #the cwd is where the sub file is so ranking/
+#    sys.path.append(os.path.join(cwd, "results_switch"))
+#    path_compression = cwd
+#    #path_compression = os.path.join(cwd, "results_compression")
+#    path_networktest = os.path.join(cwd, "results_networktest")
+#    path_switch = os.path.join(cwd, "results_switch")
+#    path_main= cwd
+#    print("path_main: ", path_main)
+if 1:
     #the cwd is results_compression
     parent_path = os.path.abspath('..')
     sys.path.append(os.path.join(parent_path, "results_switch"))
@@ -72,7 +72,8 @@ sys.path.append(path_compression)
 parser = argparse.ArgumentParser()
 # parser.add_argument("--arch", default='25,25,65,80,201,158,159,460,450,490,470,465,465,450')
 #parser.add_argument("--pruned_arch", default='5,5,6,8,21,58,59,60,50,90,70,65,65,50')
-parser.add_argument("--pruned_arch", default='60, 60, 120, 120, 250, 250, 250, 500, 500, 500, 500, 500, 500, 500')
+parser.add_argument("--pruned_arch", default='')
+
 #parser.add_argument("--arch", default='25,25,65,80,201,158,159,460,450,490,470,465,465,450')
 # ar.add_argument("-arch", default=[21,20,65,80,201,147,148,458,436,477,454,448,445,467,441])
 parser.add_argument('--layer', help="layer to prune", default="c1")
@@ -512,7 +513,7 @@ def prune_and_retrain(thresh):
         stop = 0;
         epoch = 0;
         best_accuracy = 0;
-        early_stopping = 100
+        early_stopping = 500
         optimizer = optim.SGD(net.parameters(), lr=0.0001, momentum=0.9, weight_decay=5e-4)
         while (stop < early_stopping):
             epoch = epoch + 1
