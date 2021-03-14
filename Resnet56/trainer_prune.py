@@ -60,7 +60,7 @@ parser.add_argument('--print-freq', '-p', default=100, type=int,
 parser.add_argument('--resume', default='pretrained_models/resnet56-4bfd9763.th', type=str, metavar='PATH',
 # parser.add_argument('--resume', default='save_temp/checkpoint_pruned_svhn_91.08_last.th', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
-parser.add_argument('--resume_bool', default=False)
+parser.add_argument('--resume_bool', default=False, type=int)
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
 parser.add_argument('--pretrained', dest='pretrained', action='store_true',
@@ -74,19 +74,19 @@ parser.add_argument('--save-every', dest='save_every',
                     help='Saves checkpoints at every specified number of epochs',
                     type=int, default=10)
 parser.add_argument('--dataset', default="cifar")
-parser.add_argument("--trainval_perc", default=1., type=float)
+parser.add_argument("--trainval_perc", default=0.9, type=float)
 
-parser.add_argument("--rank_method", default="switches")
+parser.add_argument("--rank_method", default="shapley")
 
 #shapley
-parser.add_argument("--shap_method", default="random")
-parser.add_argument("--load_file", default=1, type=int)
+parser.add_argument("--shap_method", default="kernel")
+parser.add_argument("--load_file", default=0, type=int)
 parser.add_argument("--k_num", default=None)
 parser.add_argument("--shap_sample_num", default=10, type=int)
 # switch
 parser.add_argument("--switch_train", default=False, type=int)
 
-parser.add_argument("--prune", default=False)
+parser.add_argument("--prune", default=False, type=int)
 parser.add_argument("--pruned_arch", default="11,18,30")
 
 

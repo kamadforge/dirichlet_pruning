@@ -261,6 +261,8 @@ def kernshap(file_write, net, net_name, layer, evaluate, dataset, k_num, param, 
             if net_name is not "Resnet":
                 layerbias = layer[:-6] + "bias"  #:3 for lenet
                 params_bias = net.state_dict()[layerbias]
+            else:
+                params_bias = None
 
             # if file_write:
             #     with open(file_name, "a+") as textfile:
