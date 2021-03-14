@@ -32,6 +32,9 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
     os.makedirs(f"../methods/sv/{net_name}/{method}", exist_ok=True)
 
     shap_ranks=[]; shap_ranks_dic = {}
+
+
+
     for layer_name, param in net.named_parameters():
         if layer != None:
             if layer==layer_name:
@@ -41,10 +44,16 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
 
         if "weight" in layer_name and "bn" not in layer_name and "out" not in layer_name:
             if not net_name == "Resnet" or (net_name == "Resnet" and "layer" in layer_name):
-                global file_name, file_name_new
+                global file_name, file_name_new, file_name_old
                 file_name = f"../methods/sv/{net_name}/{method}/{method}_pruning_{checkpoint_name}_{layer_name}"
                 file_name_new = file_name + "_new.txt"
                 file_old = file_name + ".txt"
+                file_name_old = file_name + ".txt"
+                if not os.path.isfile(file_name_old):
+                    with open(file_name_old, "a+") as f:
+                        f.write((str(param.shape[0])+"\n"))
+
+
 
                 if method == "kernel":
 
@@ -103,20 +112,21 @@ def file_read(meth, net_name, checkpoint_name, layer):
     return randsvs
 
 
-def file_check():
-    # check if new results have more lines than the previous one
-    file_old = file_name + ".txt"
-    file_new = file_name + "_new.txt"
-    if os.path.exists(file_old):
-        num_lines_old = sum(1 for line in open(file_old, "r"))
-        num_lines_new = sum(1 for line in open(file_new, "r"))
-        if num_lines_old > num_lines_new:
-            os.remove(file_new)
+def file_check(method):
+    if method=="combin":
+        # check if new results have more lines than the previous one
+        file_old = file_name + ".txt"
+        file_new = file_name + "_new.txt"
+        if os.path.exists(file_old):
+            num_lines_old = sum(1 for line in open(file_old, "r"))
+            num_lines_new = sum(1 for line in open(file_new, "r"))
+            if num_lines_old > num_lines_new:
+                os.remove(file_new)
+            else:
+                os.remove(file_old)
+                os.rename(file_new, file_old)
         else:
-            os.remove(file_old)
             os.rename(file_new, file_old)
-    else:
-        os.rename(file_new, file_old)
 
 
 # taken form ranking/results_compression/lenet_network_pruning_withcombinations.py
@@ -242,7 +252,7 @@ def check_combination(net, net_name, combination, param, evaluate, params_bias):
 
 def write_file(file_write, comb, acc):
     if file_write:
-        with open(file_name_new, "a+") as textfile:
+        with open(file_name_old, "a+") as textfile:
             textfile.write("%s: %.2f\n" % (",".join(str(x) for x in comb), acc))
 
 
@@ -252,9 +262,9 @@ def kernshap(file_write, net, net_name, layer, evaluate, dataset, k_num, param, 
                 layerbias = layer[:-6] + "bias"  #:3 for lenet
                 params_bias = net.state_dict()[layerbias]
 
-            if file_write:
-                with open(file_name_new, "a+") as textfile:
-                    textfile.write(str(param.shape[0])+"\n")
+            # if file_write:
+            #     with open(file_name, "a+") as textfile:
+            #         textfile.write(str(param.shape[0])+"\n")
 
             combinations_bin = np.zeros((samples_num, param.shape[0]))
             accuracies = np.zeros(samples_num)
@@ -277,7 +287,7 @@ def kernshap(file_write, net, net_name, layer, evaluate, dataset, k_num, param, 
 
                 write_file(file_write, combinations_bin[i], accuracies[i])
 
-            file_check()
+            #file_check()
 
             dumm=1
             return

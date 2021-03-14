@@ -71,12 +71,12 @@ sys.path.append(path_compression)
 
 parser = argparse.ArgumentParser()
 # parser.add_argument("--arch", default='25,25,65,80,201,158,159,460,450,490,470,465,465,450')
-#parser.add_argument("--pruned_arch", default='5,5,6,8,21,58,59,60,50,90,70,65,65,50')
-parser.add_argument("--pruned_arch", default='')
+parser.add_argument("--pruned_arch", default='5,5,6,8,21,58,59,60,50,90,70,65,65,50')
+#parser.add_argument("--pruned_arch", default='')
 
 #parser.add_argument("--arch", default='25,25,65,80,201,158,159,460,450,490,470,465,465,450')
 # ar.add_argument("-arch", default=[21,20,65,80,201,147,148,458,436,477,454,448,445,467,441])
-parser.add_argument('--layer', help="layer to prune", default="c1")
+parser.add_argument('--layer', help="layer to prune", default=None)
 parser.add_argument("--method", default='shapley') #switch, l1, l2
 parser.add_argument("--dataset", default="cifar")
 parser.add_argument("--trainval_perc", default=0.8, type=float)
@@ -87,10 +87,10 @@ parser.add_argument("--switch_epochs", default=1, type=int)
 parser.add_argument("--ranks_method", default='point') #point, integral
 parser.add_argument("--switch_trainranks", default=1, type=int)
 #shapley
-parser.add_argument("--shap_method", default="random")
+parser.add_argument("--shap_method", default="kernel")
 parser.add_argument("--load_file", default=1, type=int)
 parser.add_argument("--k_num", default=None)
-parser.add_argument("--shap_sample_num", default=10, type=int)
+parser.add_argument("--shap_sample_num", default=2, type=int)
 #general
 parser.add_argument("--resume", default=False, type=int)
 parser.add_argument("--prune_bool", default=False, type=int)
@@ -377,7 +377,7 @@ def prune_and_retrain(thresh):
                 combinationss, rank_dic = shapley_rank.shapley_rank(testval, net, "VGG", os.path.split(model2load)[1], args.dataset, args.load_file, args.k_num, args.shap_method, args.shap_sample_num)
             except KeyboardInterrupt:
                 print('Interrupted')
-                shapley_rank.file_check()
+                shapley_rank.file_check(args.shap_method)
                 try:
                     sys.exit(0)
                 except SystemExit:
