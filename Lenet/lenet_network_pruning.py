@@ -27,12 +27,12 @@ arguments.add_argument("--folder")
 arguments.add_argument("--method", default="shapley") #switch_itegral, swithc_point, fisher, l1, l2, random
 arguments.add_argument("--switch_samps", default=150, type=int)
 arguments.add_argument("--switch_comb", default='train') #train, load
-arguments.add_argument("--layer", default="c3.weight")
+arguments.add_argument("--layer", default="c1.weight")
 #shapley
 arguments.add_argument("--shap_method", default="combin")
-arguments.add_argument("--load_file", default=1, type=int)
+arguments.add_argument("--load_file", default=0, type=int)
 arguments.add_argument("--k_num", default=None)
-arguments.add_argument("--shap_sample_num", default=2, type=int)
+arguments.add_argument("--shap_sample_num", default=170, type=int)
 
 arguments.add_argument("--dataset", default="mnist")
 arguments.add_argument("--early_stopping", default=500, type=int)
@@ -481,6 +481,10 @@ if resume:
             print("\nRanking:")
             for comb in combinationss:
                 print(comb)
+
+            if args.layer!=None:
+                break;
+
             acc = threshold_prune_and_retrain(combinationss, [pruned_arch['c1'], pruned_arch['c3'], pruned_arch['c5'],pruned_arch['f6']])
             accs[method] = acc
 

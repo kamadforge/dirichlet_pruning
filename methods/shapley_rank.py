@@ -9,8 +9,9 @@ from operator import itemgetter
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-def oracle(dic, size):
+def oracle(dic, size, nodenum):
 
+    #smaller values means this set (which is zeroed out) bring highest loss
     keys = list(dic.keys())
     mm = [i for i in keys if len(i) == size]
     lal = {k: dic[k] for k in mm}
@@ -18,7 +19,12 @@ def oracle(dic, size):
     d_keys = list(d)
     d_values = list(d.values())
 
-    return d_keys[:5], d_values[:5]
+    d_keys_comp =[]
+    for key in range(len(d_keys)):
+        comp = set(np.arange(nodenum)) - set(d_keys[key])
+        d_keys_comp.append(comp)
+
+    return d_keys_comp[:5], d_values[:5]
 
 
 
@@ -44,6 +50,9 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
 
         if "weight" in layer_name and "bn" not in layer_name and "out" not in layer_name:
             if not net_name == "Resnet" or (net_name == "Resnet" and "layer" in layer_name):
+
+                print("Layer: ", layer_name)
+
                 global file_name, file_name_new, file_name_old
                 file_name = f"../methods/sv/{net_name}/{method}/{method}_pruning_{checkpoint_name}_{layer_name}"
                 file_name_new = file_name + "_new.txt"
@@ -68,8 +77,9 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
                 if method == "random":
                     if not file_load:
                         shap_arr = randomshap(True, net, net_name, checkpoint_name, layer_name, evaluate, dataset, k_num, param, sample_num, "zeroing")
-                    else:
-                        shap_arr = file_read("random", net_name, checkpoint_name, layer_name)
+                    shap_arr = readdata_notsampled_marginals(file_old, acc)
+
+                    #shap_arr = file_read("random", net_name, checkpoint_name, layer_name)
 
 
                 if method == "combin":
@@ -80,13 +90,14 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
                     dic, nodes_num = readdata_notsampled(file_old, acc)
                         #compute the shapley value from the combinations
                         #shap_arr = shapley_samp(dic, nodes_num, 2000)
-                    set_oracle, val_oracle = oracle(dic, 7)
-                    print(set_oracle, val_oracle)
+                    for o in range(param.shape[0]-6, param.shape[0]):
+                        set_oracle, val_oracle = oracle(dic, o, param.shape[0])
+                        print(f"\nOracle for {param.shape[0]-o} elements:")
+                        print(set_oracle, val_oracle)
                     # if method == "exact":
                     #     if not file_load:
                     #         compute_combinations_lenet(True, net, net_name, layer_name, evaluate, dataset, k_num, "zeroing")
                     shap_arr = exact_partial(dic, nodes_num, acc)
-
 
                 shap_rank = np.argsort(shap_arr)[::-1]
                 shap_ranks.append(shap_rank)
@@ -94,7 +105,7 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
     return shap_ranks, shap_ranks_dic
 
 
-def file_read(meth, net_name, checkpoint_name, layer):
+def file_read_npy(meth, net_name, checkpoint_name, layer):
     if meth=="random":
         samples_most=0
         for fname in os.listdir(f'../methods/sv/{net_name}/{meth}'):
@@ -152,7 +163,7 @@ def compute_combinations_lenet(file_write, net, net_name, layer, evaluate, datas
             # get s and r to compute the (s choose r)
             s = torch.arange(0, param.shape[0])  # list from 0 to 19 as these are the indices of the data tensor
             # get the alternating elements in the channel list to have the most combinations from the beginning and end first
-            a = np.arange(1, param.shape[0])
+            a = np.arange(0, param.shape[0]+1)
             channel_list = [a[-i // 2] if i % 2 else a[i // 2] for i in range(len(a))]
             channel_list=channel_list[:] if k_num==None else channel_list[:k_num]
             #for r in range(1, param.shape[0]):  # produces the combinations of the elements in s
@@ -161,17 +172,20 @@ def compute_combinations_lenet(file_write, net, net_name, layer, evaluate, datas
                 results = []
                 for combination in list(combinations(s, r)):
                     combination = torch.LongTensor(combination)
-                    print(combination)
+                    #print(combination)
                     # save current values in a placeholder
                     params_saved = param[combination].clone();
                     if net_name is not "Resnet":
                         param_bias_saved = params_bias[combination].clone()
                     # zero out a subset of the channels
                     if perturbation_method == "zeroing":
-                        param[combination[0]] = 0
-                        if net_name is not "Resnet":
-                            params_bias[combination] = 0
-                        accuracy = evaluate(net, "val")
+
+
+                        ## param[combination] = 0
+                        ## if net_name is not "Resnet":
+                        ##     params_bias[combination] = 0
+                        ## accuracy = evaluate(net, "val")
+
                     # add noise to subset of channels (experimental feature)
                     # elif perturbation_method == "additive_noise":
                         # # norm_dist=torch.distributions.Normal(0,0.1)
@@ -189,9 +203,14 @@ def compute_combinations_lenet(file_write, net, net_name, layer, evaluate, datas
                         # print("Averaged accuracy: ", accuracy)
                     ########################################333
                     # accuracy = evaluate(net)
-                    param.data[combination] = params_saved
-                    if net_name is not "Resnet":
-                        params_bias.data[combination] = param_bias_saved
+
+                    ##param.data[combination] = params_saved
+                    ##if net_name is not "Resnet":
+                    ##    params_bias.data[combination] = param_bias_saved
+
+                        accuracy = check_combination(net, net_name, combination, param, evaluate, params_bias)
+
+
                     results.append((combination, accuracy))
                     # write the combinations to the file
                     if file_write:
@@ -202,29 +221,39 @@ def compute_combinations_lenet(file_write, net, net_name, layer, evaluate, datas
             file_check()
 
 
-def exact_partial(dic, nodesNum, original_acc):
-
-    dic[tuple(np.arange(nodesNum))] = original_acc #if no nodes, zero accuracy
-    dic[()] = 0
+def exact_partial(dic, nodesNum, original_acc, K_param=0):
+    #minus means actually plus because we remove it from the list of 0s, so add to the list of non-zeros
+    dic[tuple(np.arange(nodesNum))] = 10 #random accuracy of no all zeros
+    dic[()] = original_acc
     m = list(dic.keys())
     m.sort(key=lambda t: len(t), reverse=True)
 
     shaps = np.zeros(nodesNum)
     shaps_samps = np.zeros(nodesNum)
+    N = nodesNum
     for elem in m:
-        #print("el", elem)
         val1 = dic[elem]
+        #print("el: ", elem, "val: ", val1)
+        if len(elem) == 1:
+            mama = 0
+        elem_set = set(elem)
         for i in elem:
-            elem_minus = tuple(np.delete(elem, np.where(elem == i)))
-            if len(elem_minus) >1 and tuple(elem_minus) in m:
-                val2 = dic[elem_minus] - val1
-            elif len(elem_minus)==1:
-                val2 = dic[elem_minus]
+            elem_set.remove(i)
+            elem_plus = tuple(elem_set)
+            K = len(elem_plus)
+            if K>=(K-K_param) or K<=K_param:
+                #if K >1 and tuple(elem_plus) in m:
+                if tuple(elem_plus) in m:
+                    val2 = dic[elem_plus]-val1
+                # elif len(elem_plus)==1:
+                #     val2 = dic[elem_plus]
+                #print(print("i: ", i, "val2: ", val2, "el: ", elem_minus, "val: ", dic[elem_minus]))
 
-                shaps[i]+=val2
+                coeff = np.math.factorial(N-K-1)*np.math.factorial(K)
+                shaps[i]+=val2*coeff
                 shaps_samps[i]+=1
 
-    svs = np.divide(shaps, nodesNum)
+    svs = np.divide(shaps, np.math.factorial(N))
     print("svs", svs)
     return svs
 
@@ -312,6 +341,7 @@ def randomshap(file_write, net, net_name, checkpoint_name, layer, evaluate, data
         print(f"\nSample num: {i}")
         randperm = np.random.permutation(param.shape[0])
         last_acc  = acc_val
+        nums = []; marginals = [];
         for j in range(param.shape[0]):
             elem = randperm[j]
             print(f"\n\nChannel marginal check: {elem}")
@@ -321,12 +351,17 @@ def randomshap(file_write, net, net_name, checkpoint_name, layer, evaluate, data
             last_acc = acc
             shaps[elem]+= marginal
 
+            nums.append(elem); marginals.append(marginal)
+
+        for k in range(len(nums)):
+            write_file(file_write, str(nums[k]), marginals[k])
+
         if i % 10 == 0 or i==samples_num-1:
             print(shaps)
             randsvs = shaps/(i+1)
             print(randsvs)
             print(np.argsort(randsvs)[::-1])
-            np.save(f"../methods/sv/{net_name}/random/randomshap_{checkpoint_name}_{layer}_samp_{(i+1)}.npy", randsvs)
+            #np.save(f"../methods/sv/{net_name}/random/randomshap_{checkpoint_name}_{layer}_samp_{(i+1)}.npy", randsvs)
     return randsvs
 
 
@@ -405,6 +440,26 @@ def compute_combinations_random(file_write, net, evaluate):
 # 0,2: 98.83
 # 0,3: 98.63
 # 0,4: 98.80
+
+
+def readdata_notsampled_marginals(file, original_accuracy):
+    f = open(file)
+    dict = {(): 0}
+    nodes_num = int(next(f)[:-1]) # number of points, first line of the file only
+    shap=np.zeros(nodes_num)
+    for i in range(nodes_num):
+        dict[i]=[]
+    for line in f:
+        linesplit = line.strip().split(":")
+        tup = int(linesplit[0])
+        acc = float(linesplit[1])
+        #dict[tup] = original_accuracy - acc
+        dict[tup].append(acc)
+        #print(tup, acc)
+    f.close()
+    for m in range(nodes_num):
+        shap[m]=np.average(dict[m])
+    return shap
 
 
 def readdata_notsampled(file, original_accuracy):
