@@ -45,11 +45,10 @@ def load_imagenet(trainval_perc):
     val_sampler = SubsetRandomSampler(val_idx)
 
     train_loader = torch.utils.data.DataLoader(trainset, batch_size=train_batch_size,
-                                               sampler=train_sampler, shuffle=True, num_workers=num_workers)
+                                               sampler=train_sampler, num_workers=num_workers)
     val_loader = torch.utils.data.DataLoader(valset, batch_size=val_batch_size,
-                                             sampler=val_sampler, shuffle=False)
-    test_loader = torch.utils.data.DataLoader(testset, batch_size=val_batch_size,
-                                             sampler=val_sampler, shuffle=False)
+                                             sampler=val_sampler, num_workers=num_workers)
+    test_loader = torch.utils.data.DataLoader(testset, batch_size=val_batch_size, num_workers=num_workers)
 
 
     return train_loader, test_loader, val_loader
