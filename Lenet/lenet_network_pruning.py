@@ -27,23 +27,29 @@ arguments.add_argument("--folder")
 arguments.add_argument("--method", default="shapley") #switch_itegral, swithc_point, fisher, l1, l2, random
 arguments.add_argument("--switch_samps", default=150, type=int)
 arguments.add_argument("--switch_comb", default='train') #train, load
-arguments.add_argument("--layer", default="c1.weight")
+arguments.add_argument("--layer", default="c3.weight")
 #shapley
-arguments.add_argument("--shap_method", default="kernel")
+arguments.add_argument("--shap_method", default="combin")
 arguments.add_argument("--load_file", default=1, type=int)
-arguments.add_argument("--k_num", default=None)
-arguments.add_argument("--shap_sample_num", default=170, type=int)
+arguments.add_argument("--k_num", default=3)
+arguments.add_argument("--shap_sample_num", default=30, type=int)
+arguments.add_argument("--adding", default=0, type=int)
 
 arguments.add_argument("--dataset", default="mnist")
 arguments.add_argument("--early_stopping", default=500, type=int)
 arguments.add_argument("--batch_size", default=105, type=int)
 arguments.add_argument("--trainval_perc", default=0.8, type=float)
 
-arguments.add_argument("--resume", default=False)
-arguments.add_argument("--prune_bool", default=False)
-arguments.add_argument("--retrain", default=False)
+arguments.add_argument("--resume", default=False, type=int)
+arguments.add_argument("--prune_bool", default=False, type=int)
+arguments.add_argument("--retrain", default=False, type=int)
 
-arguments.add_argument("--path_checkpoint_load", default="checkpoint/scratch/mnist/mnist_trainval_0.8_epo_424_acc_99.05")
+arguments.add_argument("--path_checkpoint_load", default=
+#"checkpoint/scratch/mnist/mnist_trainval_0.8_epo_473_acc_99.07")
+#"checkpoint/scratch/mnist/mnist_trainval_0.8_epo_462_acc_99.05")
+"checkpoint/scratch/mnist/mnist_trainval_0.8_epo_424_acc_99.05")
+#"checkpoint/scratch/mnist/mnist_trainval_0.8_epo_449_acc_99.04")
+#"checkpoint/scratch/mnist/mnist_trainval_0.8_epo_554_acc_99.04")
 arguments.add_argument("--path_checkpoint_save", default="checkpoint")
 
 
@@ -298,7 +304,7 @@ def get_ranks(method, path_checkpoint):
         load_file = args.load_file
 
         try:
-            combinationss = shapley_rank.shapley_rank(evaluate, net, "Lenet", os.path.split(path_checkpoint)[1], dataset, load_file, args.k_num, args.shap_method, args.shap_sample_num, args.layer)
+            combinationss = shapley_rank.shapley_rank(evaluate, net, "Lenet", os.path.split(path_checkpoint)[1], dataset, load_file, args.k_num, args.shap_method, args.shap_sample_num, args.adding, args.layer)
         except KeyboardInterrupt:
             print('Interrupted')
             shapley_rank.file_check()
@@ -480,7 +486,7 @@ if resume:
             combinationss, combinationss_dic = get_ranks(method, path_checkpoint_load_ret);
             print("\nRanking:")
             for comb in combinationss:
-                print(comb)
+                print(",".join(map(str, comb)))
 
             if args.layer!=None:
                 break;

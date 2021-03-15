@@ -9,37 +9,70 @@ from operator import itemgetter
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-def oracle(dic, size, nodenum):
+def oracle(dic, size, nodenum, adding):
 
     #smaller values means this set (which is zeroed out) bring highest loss
     keys = list(dic.keys())
-    mm = [i for i in keys if len(i) == size]
+    if adding:
+        mm = [i for i in keys if len(i) == nodenum - size]
+    else:
+        mm = [i for i in keys if len(i) == size]
+
     lal = {k: dic[k] for k in mm}
-    d = OrderedDict(sorted(lal.items(), key=itemgetter(1), reverse=True))
-    d_keys = list(d)
-    d_values = list(d.values())
+    d_rev = OrderedDict(sorted(lal.items(), key=itemgetter(1), reverse=True))
 
-    d_keys_comp =[]
-    for key in range(len(d_keys)):
-        comp = set(np.arange(nodenum)) - set(d_keys[key])
-        d_keys_comp.append(comp)
+    d_keys = list(d_rev)
+    d_values = list(d_rev.values())
 
-    return d_keys_comp[:5], d_values[:5]
+    # adding. we take biggest
+    if adding:
+        d_keys_comp =[]
+        for key in range(len(d_keys)):
+            comp = set(np.arange(nodenum)) - set(d_keys[key])
+            d_keys_comp.append(comp)
+
+        return d_keys_comp[:5], d_values[:5]
+
+    # removing, we take smallest, removing hurts the accuracy
+    else: #best to remove
+        return d_keys[:5], d_values[:5]
 
 
+def oracle_get(dic, param, rank):
+    # oracle
+    print("\nOracle adding\n")
+    good=0; all=0
+    for o in range(1, 6):
+        set_oracle, val_oracle = oracle(dic, o, param.shape[0], True)
+        print(f"\nOracle best to add for {param.shape[0] - o}:")
+        print(set_oracle, val_oracle)
+        ora = set(list(set_oracle[:o][0]))
+        ran = set(rank[:o])
+        inter = ora.intersection(ran)
+        good+=len(inter); all+=len(ran)
+        print(f"Acc add: {good/float(all)}")
+    print("\nOracle removing\n")
+    good = 0; all = 0
+    for o in range(1, 6):
+        set_oracle, val_oracle = oracle(dic, o, param.shape[0], False)
+        print(f"\nOracle vest to remove for {o}:")
+        print(set_oracle, val_oracle)
+        ora = set(list(set_oracle[:o][0]))
+        ran = set(rank[-o:])
+        inter = ora.intersection(ran)
+        good += len(inter);
+        all += len(ran)
+        print(f"Acc remov: {good / float(all)}")
 
-def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k_num, method, sample_num, layer=None, criterion="dummy"):
+
+def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k_num, method, sample_num, adding, layer=None, criterion="dummy"):
     path_file = "sv/Lenet/combin"
     print("Computing Shapley rank in two stages")
     print(f"Shapley method: {method}")
     acc = evaluate(net, "test")
     # compute combinations/ characteristic function
-
     os.makedirs(f"../methods/sv/{net_name}/{method}", exist_ok=True)
-
     shap_ranks=[]; shap_ranks_dic = {}
-
-
 
     for layer_name, param in net.named_parameters():
         if layer != None:
@@ -52,7 +85,6 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
             if not net_name == "Resnet" or (net_name == "Resnet" and "layer" in layer_name):
 
                 print("Layer: ", layer_name)
-
                 global file_name, file_name_new, file_name_old
                 file_name = f"../methods/sv/{net_name}/{method}/{method}_pruning_{checkpoint_name}_{layer_name}"
                 file_name_new = file_name + "_new.txt"
@@ -62,10 +94,7 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
                     with open(file_name_old, "a+") as f:
                         f.write((str(param.shape[0])+"\n"))
 
-
-
                 if method == "kernel":
-
                     if not file_load:
                         shap_arr = kernshap(True, net, net_name, layer_name, evaluate, dataset, k_num, param, sample_num, "zeroing")
                     dic, nodes_num = readdata_notsampled(file_old, acc)
@@ -76,32 +105,33 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
 
                 if method == "random":
                     if not file_load:
-                        shap_arr = randomshap(True, net, net_name, checkpoint_name, layer_name, evaluate, dataset, k_num, param, sample_num, "zeroing")
-                    shap_arr = readdata_notsampled_marginals(file_old, acc)
-
+                        randomshap(True, net, net_name, checkpoint_name, layer_name, evaluate, dataset, k_num, param, sample_num, "zeroing")
+                    shap_arr = readdata_notsampled_random(file_old, acc)
+                    print("shaps\n", shap_arr)
                     #shap_arr = file_read("random", net_name, checkpoint_name, layer_name)
-
 
                 if method == "combin":
                     if not file_load:
                         compute_combinations_lenet(True, net, net_name, layer_name, evaluate, dataset, k_num, "zeroing")
-
-                    #sample_num = 50
-                    dic, nodes_num = readdata_notsampled(file_old, acc)
-                        #compute the shapley value from the combinations
-                        #shap_arr = shapley_samp(dic, nodes_num, 2000)
-                    for o in range(param.shape[0]-6, param.shape[0]):
-                        set_oracle, val_oracle = oracle(dic, o, param.shape[0])
-                        print(f"\nOracle for {param.shape[0]-o} elements:")
-                        print(set_oracle, val_oracle)
-                    # if method == "exact":
-                    #     if not file_load:
-                    #         compute_combinations_lenet(True, net, net_name, layer_name, evaluate, dataset, k_num, "zeroing")
-                    shap_arr = exact_partial(dic, nodes_num, acc)
+                    dic, nodes_num = readdata_notsampled(file_name_new, acc)
+                    #k_num=1; adding=False
+                    print(f"\nExact partial for {k_num} and adding: {adding}")
+                    shap_arr = exact_partial(dic, nodes_num, acc, adding, k_num)
+                    la=np.argsort(shap_arr)[::-1]
+                    print(",".join(map(str, la)))
 
                 shap_rank = np.argsort(shap_arr)[::-1]
+                print(shap_rank)
                 shap_ranks.append(shap_rank)
                 shap_ranks_dic[layer_name]=shap_rank
+
+                # get oracle
+                file_name = f"../methods/sv/{net_name}/combin/combin_pruning_{checkpoint_name}_{layer_name}"
+                file_name_new = file_name + "_new.txt"
+
+                dic, nodes_num = readdata_notsampled(file_name_new, acc)
+                oracle_get(dic, param, shap_rank)
+
     return shap_ranks, shap_ranks_dic
 
 
@@ -221,9 +251,9 @@ def compute_combinations_lenet(file_write, net, net_name, layer, evaluate, datas
             file_check()
 
 
-def exact_partial(dic, nodesNum, original_acc, K_param=0):
+def exact_partial(dic, nodesNum, original_acc, adding, K_param=0):
     #minus means actually plus because we remove it from the list of 0s, so add to the list of non-zeros
-    dic[tuple(np.arange(nodesNum))] = 10 #random accuracy of no all zeros
+    #dic[tuple(np.arange(nodesNum))] = 10 #random accuracy of no all zeros
     dic[()] = original_acc
     m = list(dic.keys())
     m.sort(key=lambda t: len(t), reverse=True)
@@ -237,21 +267,26 @@ def exact_partial(dic, nodesNum, original_acc, K_param=0):
         if len(elem) == 1:
             mama = 0
         elem_set = set(elem)
+        if adding:
+            thresh = (nodesNum - K_param)
+        else:
+            thresh = K_param
         for i in elem:
             elem_set.remove(i)
             elem_plus = tuple(elem_set)
             K = len(elem_plus)
-            if K>=(K-K_param) or K<=K_param:
+            if (K>=thresh and adding) or (K+1<=thresh and not adding):
                 #if K >1 and tuple(elem_plus) in m:
                 if tuple(elem_plus) in m:
                     val2 = dic[elem_plus]-val1
                 # elif len(elem_plus)==1:
                 #     val2 = dic[elem_plus]
-                #print(print("i: ", i, "val2: ", val2, "el: ", elem_minus, "val: ", dic[elem_minus]))
+                #print(print("i: ", i, "val2: ", val2, "el: ", elem_plus, "val: ", dic[elem_plus]))
 
                 coeff = np.math.factorial(N-K-1)*np.math.factorial(K)
                 shaps[i]+=val2*coeff
                 shaps_samps[i]+=1
+            elem_set.add(i)
 
     svs = np.divide(shaps, np.math.factorial(N))
     print("svs", svs)
@@ -463,8 +498,11 @@ def readdata_notsampled_marginals(file, original_accuracy):
 
 def readdata_notsampled(file, original_accuracy):
     f = open(file)
-    dict = {(): 0}
     nodes_num = next(f)[:-1] # number of points, first line of the file only
+    line = next(f)
+    linesplit = line.strip().split(":")
+    original_accuracy2 = float(linesplit[1])
+    dict = {(): original_accuracy}
     for line in f:
         linesplit = line.strip().split(":")
         tup = tuple(int(float(i) )for i in linesplit[0].split(","))
@@ -474,6 +512,49 @@ def readdata_notsampled(file, original_accuracy):
         #print(tup, acc)
     f.close()
     return dict, int(nodes_num)
+
+
+def get_svs(dict, original_accuracy, nodes_num):
+    shaps=np.zeros(nodes_num)
+    for key in dict.keys():
+        keyl = list(key)
+        if len(keyl)==0:
+            #shaps[keyl[-1]]=original_accuracy-dict[key]
+            old_key_val=dict[key]
+        else:
+            shaps[keyl[-1]]=old_key_val-dict[key]
+            old_key_val=dict[key]
+    return shaps
+
+
+def readdata_notsampled_random(file, original_accuracy):
+    f = open(file)
+    nodes_num = int(next(f)[:-1]) # number of points, first line of the file only
+    #line = next(f)
+    #linesplit = line.strip().split(":")
+    #original_accuracy2 = float(linesplit[1])
+    i=0
+    dict = {(): original_accuracy}
+    shaps=np.zeros(nodes_num)
+    samps=0
+    for line in f:
+        i+=1
+        linesplit = line.strip().split(":")
+        tup = tuple(int(float(i) )for i in linesplit[0].split(","))
+        acc = float(linesplit[1])
+        #dict[tup] = original_accuracy - acc
+        dict[tup]=acc
+        #print(tup, acc)
+        if i == int(nodes_num):
+            i=0
+            samps+=1
+            shaps_part = get_svs(dict, original_accuracy, nodes_num)
+            shaps+=shaps_part
+            dict = {(): original_accuracy}
+
+    shaps=shaps/samps
+    f.close()
+    return shaps
 
 
 #######################
