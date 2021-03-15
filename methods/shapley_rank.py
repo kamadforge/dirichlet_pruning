@@ -72,7 +72,7 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
                     reg = LinearRegression().fit(list(dic.keys())[1:], list(dic.values())[1:])
                     shap_arr = reg.coef_
                     shap_arr=-1*shap_arr
-                    #print("shaps\n", shap_arr)
+                    print("shaps\n", shap_arr)
 
                 if method == "random":
                     if not file_load:
@@ -351,10 +351,9 @@ def randomshap(file_write, net, net_name, checkpoint_name, layer, evaluate, data
             last_acc = acc
             shaps[elem]+= marginal
 
-            nums.append(elem); marginals.append(marginal)
-
+            nums.append(combination); marginals.append(acc)
         for k in range(len(nums)):
-            write_file(file_write, str(nums[k]), marginals[k])
+            write_file(file_write, nums[k], marginals[k])
 
         if i % 10 == 0 or i==samples_num-1:
             print(shaps)

@@ -29,8 +29,8 @@ arguments.add_argument("--switch_samps", default=150, type=int)
 arguments.add_argument("--switch_comb", default='train') #train, load
 arguments.add_argument("--layer", default="c1.weight")
 #shapley
-arguments.add_argument("--shap_method", default="combin")
-arguments.add_argument("--load_file", default=0, type=int)
+arguments.add_argument("--shap_method", default="kernel")
+arguments.add_argument("--load_file", default=1, type=int)
 arguments.add_argument("--k_num", default=None)
 arguments.add_argument("--shap_sample_num", default=170, type=int)
 

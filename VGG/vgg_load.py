@@ -71,7 +71,7 @@ sys.path.append(path_compression)
 
 parser = argparse.ArgumentParser()
 # parser.add_argument("--arch", default='25,25,65,80,201,158,159,460,450,490,470,465,465,450')
-parser.add_argument("--pruned_arch", default='5,5,6,8,21,58,59,60,50,90,70,65,65,50')
+parser.add_argument("--pruned_arch", default='34,34,60,60,70,101,97,88,95,85,86,67,61,55,55')
 #parser.add_argument("--pruned_arch", default='')
 
 #parser.add_argument("--arch", default='25,25,65,80,201,158,159,460,450,490,470,465,465,450')
@@ -87,8 +87,8 @@ parser.add_argument("--switch_epochs", default=1, type=int)
 parser.add_argument("--ranks_method", default='point') #point, integral
 parser.add_argument("--switch_trainranks", default=1, type=int)
 #shapley
-parser.add_argument("--shap_method", default="kernel")
-parser.add_argument("--load_file", default=1, type=int)
+parser.add_argument("--shap_method", default="random")
+parser.add_argument("--load_file", default=0, type=int)
 parser.add_argument("--k_num", default=None)
 parser.add_argument("--shap_sample_num", default=2, type=int)
 #general
