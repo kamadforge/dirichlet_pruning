@@ -70,7 +70,7 @@ parser.add_argument('--dataset', default="cifar")
 parser.add_argument("--trainval_perc", default=0.9, type=float)
 
 parser.add_argument("--rank_method", default="shapley")
-parser.add_argument("--layer", default="module.layer1.1.conv1.weight")
+parser.add_argument("--layer", default=None)
 
 #shapley
 parser.add_argument("--shap_method", default="random")
