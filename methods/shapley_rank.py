@@ -500,9 +500,9 @@ def readdata_notsampled_marginals(file, original_accuracy):
 def readdata_notsampled(file, original_accuracy):
     f = open(file)
     nodes_num = next(f)[:-1] # number of points, first line of the file only
-    line = next(f)
-    linesplit = line.strip().split(":")
-    original_accuracy2 = float(linesplit[1])
+    #line = next(f)
+    #linesplit = line.strip().split(":")
+    #original_accuracy2 = float(linesplit[1])
     dict = {(): original_accuracy}
     for line in f:
         linesplit = line.strip().split(":")
