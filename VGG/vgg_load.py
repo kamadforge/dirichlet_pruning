@@ -87,10 +87,11 @@ parser.add_argument("--switch_epochs", default=1, type=int)
 parser.add_argument("--ranks_method", default='point') #point, integral
 parser.add_argument("--switch_trainranks", default=1, type=int)
 #shapley
-parser.add_argument("--shap_method", default="random")
+parser.add_argument("--shap_method", default="kernel")
 parser.add_argument("--load_file", default=0, type=int)
-parser.add_argument("--k_num", default=None)
+parser.add_argument("--k_num", default=10)
 parser.add_argument("--shap_sample_num", default=2, type=int)
+parser.add_argument("--adding", default=0, type=int)
 #general
 parser.add_argument("--resume", default=False, type=int)
 parser.add_argument("--prune_bool", default=False, type=int)
@@ -374,7 +375,7 @@ def prune_and_retrain(thresh):
         ###############
         elif method == 'shapley':
             try:
-                combinationss, rank_dic = shapley_rank.shapley_rank(testval, net, "VGG", os.path.split(model2load)[1], args.dataset, args.load_file, args.k_num, args.shap_method, args.shap_sample_num)
+                combinationss, rank_dic = shapley_rank.shapley_rank(testval, net, "VGG", os.path.split(model2load)[1], args.dataset, args.load_file, args.k_num, args.shap_method, args.shap_sample_num, args.adding)
             except KeyboardInterrupt:
                 print('Interrupted')
                 shapley_rank.file_check(args.shap_method)

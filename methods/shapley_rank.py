@@ -125,12 +125,13 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
                 shap_ranks.append(shap_rank)
                 shap_ranks_dic[layer_name]=shap_rank
 
-                # get oracle
+                #get oracle
                 file_name = f"../methods/sv/{net_name}/combin/combin_pruning_{checkpoint_name}_{layer_name}"
                 file_name_new = file_name + "_new.txt"
 
-                dic, nodes_num = readdata_notsampled(file_name_new, acc)
-                oracle_get(dic, param, shap_rank)
+                if os.path.isfile(file_name_new):
+                    dic, nodes_num = readdata_notsampled(file_name_new, acc)
+                    oracle_get(dic, param, shap_rank)
 
     return shap_ranks, shap_ranks_dic
 
