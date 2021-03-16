@@ -43,8 +43,7 @@ parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet56',
                     ' (default: resnet56)')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)') #4
-parser.add_argument('--epochs', default=2000, type=int, metavar='N',
-                    help='number of total epochs to run')
+parser.add_argument('--epochs', default=2000, type=int, metavar='N')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
 parser.add_argument('-b', '--batch-size', default=128, type=int,
@@ -61,28 +60,23 @@ parser.add_argument('--resume', default='pretrained_models/resnet56-4bfd9763.th'
 # parser.add_argument('--resume', default='save_temp/checkpoint_pruned_svhn_91.08_last.th', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('--resume_bool', default=False, type=int)
-parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
-                    help='evaluate model on validation set')
-parser.add_argument('--pretrained', dest='pretrained', action='store_true',
-                    help='use pre-trained model')
+parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true')
+parser.add_argument('--pretrained', dest='pretrained', action='store_true')
 parser.add_argument('--half', dest='half', action='store_true',
                     help='use half-precision(16-bit) ')
-parser.add_argument('--save-dir', dest='save_dir',
-                    help='The directory used to save the trained models',
-                    default='save_temp', type=str)
-parser.add_argument('--save-every', dest='save_every',
-                    help='Saves checkpoints at every specified number of epochs',
-                    type=int, default=10)
+parser.add_argument('--save-dir', dest='save_dir', default='save_temp', type=str) #'The directory used to save the trained models'
+parser.add_argument('--save-every', dest='save_every', type=int, default=10) #Saves checkpoints at every specified number of epochs'
 parser.add_argument('--dataset', default="cifar")
 parser.add_argument("--trainval_perc", default=0.9, type=float)
 
 parser.add_argument("--rank_method", default="shapley")
 
 #shapley
-parser.add_argument("--shap_method", default="kernel")
+parser.add_argument("--shap_method", default="random")
 parser.add_argument("--load_file", default=0, type=int)
 parser.add_argument("--k_num", default=None)
 parser.add_argument("--shap_sample_num", default=10, type=int)
+parser.add_argument("--adding", default=0, type=int) #for combin/oracle
 # switch
 parser.add_argument("--switch_train", default=False, type=int)
 
@@ -425,7 +419,7 @@ def get_ranks(model):
     elif args.rank_method == 'shapley':
         try:
             #validate(val_loader, model, criterion)
-            ranks_list, ranks = shapley_rank.shapley_rank(validate, model, "Resnet", os.path.split(args.resume)[1], args.dataset, args.load_file, args.k_num, args.shap_method, args.shap_sample_num)
+            ranks_list, ranks = shapley_rank.shapley_rank(validate, model, "Resnet", os.path.split(args.resume)[1], args.dataset, args.load_file, args.k_num, args.shap_method, args.shap_sample_num, args.adding)
         except KeyboardInterrupt:
             print('Interrupted')
             shapley_rank.file_check()
