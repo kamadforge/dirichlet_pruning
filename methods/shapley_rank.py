@@ -249,7 +249,7 @@ def compute_combinations_lenet(file_write, net, net_name, layer, evaluate, datas
                             textfile.write("%s: %.2f\n" % (",".join(str(x) for x in combination.numpy()), accuracy))
 
                 all_results[r] = results
-            file_check()
+            file_check("combin")
 
 
 def exact_partial(dic, nodesNum, original_acc, adding, K_param=0):
@@ -498,7 +498,7 @@ def readdata_notsampled_marginals(file, original_accuracy):
 
 
 def readdata_notsampled(file, original_accuracy):
-    f = open(file)
+    f = open(file, "w+")
     nodes_num = next(f)[:-1] # number of points, first line of the file only
     #line = next(f)
     #linesplit = line.strip().split(":")

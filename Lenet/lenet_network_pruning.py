@@ -27,11 +27,11 @@ arguments.add_argument("--folder")
 arguments.add_argument("--method", default="shapley") #switch_itegral, swithc_point, fisher, l1, l2, random
 arguments.add_argument("--switch_samps", default=150, type=int)
 arguments.add_argument("--switch_comb", default='train') #train, load
-arguments.add_argument("--layer", default="c3.weight")
+arguments.add_argument("--layer", default=None)
 #shapley
 arguments.add_argument("--shap_method", default="combin")
-arguments.add_argument("--load_file", default=1, type=int)
-arguments.add_argument("--k_num", default=3)
+arguments.add_argument("--load_file", default=0, type=int)
+arguments.add_argument("--k_num", default=6)
 arguments.add_argument("--shap_sample_num", default=30, type=int)
 arguments.add_argument("--adding", default=0, type=int)
 
@@ -307,7 +307,7 @@ def get_ranks(method, path_checkpoint):
             combinationss = shapley_rank.shapley_rank(evaluate, net, "Lenet", os.path.split(path_checkpoint)[1], dataset, load_file, args.k_num, args.shap_method, args.shap_sample_num, args.adding, args.layer)
         except KeyboardInterrupt:
             print('Interrupted')
-            shapley_rank.file_check()
+            shapley_rank.file_check("combin")
             try:
                 sys.exit(0)
             except SystemExit:
