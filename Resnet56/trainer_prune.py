@@ -70,6 +70,7 @@ parser.add_argument('--dataset', default="cifar")
 parser.add_argument("--trainval_perc", default=0.9, type=float)
 
 parser.add_argument("--rank_method", default="shapley")
+parser.add_argument("--layer", default="module.layer1.1.conv1.weight")
 
 #shapley
 parser.add_argument("--shap_method", default="random")
@@ -419,7 +420,7 @@ def get_ranks(model):
     elif args.rank_method == 'shapley':
         try:
             #validate(val_loader, model, criterion)
-            ranks_list, ranks = shapley_rank.shapley_rank(validate, model, "Resnet", os.path.split(args.resume)[1], args.dataset, args.load_file, args.k_num, args.shap_method, args.shap_sample_num, args.adding)
+            ranks_list, ranks = shapley_rank.shapley_rank(validate, model, "Resnet", os.path.split(args.resume)[1], args.dataset, args.load_file, args.k_num, args.shap_method, args.shap_sample_num, args.adding, args.layer)
         except KeyboardInterrupt:
             print('Interrupted')
             shapley_rank.file_check()
