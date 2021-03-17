@@ -31,7 +31,7 @@ arguments.add_argument("--layer", default=None)
 #shapley
 arguments.add_argument("--shap_method", default="combin")
 arguments.add_argument("--load_file", default=0, type=int)
-arguments.add_argument("--k_num", default=6)
+arguments.add_argument("--k_num", default=6, type=int)
 arguments.add_argument("--shap_sample_num", default=30, type=int)
 arguments.add_argument("--adding", default=0, type=int)
 
