@@ -89,9 +89,9 @@ parser.add_argument("--load_file", default=1, type=int)
 parser.add_argument("--k_num", default=None)
 parser.add_argument("--shap_sample_num", default=10, type=int)
 #general
-parser.add_argument("--resume", default=False)
-parser.add_argument("--prune_bool", default=False)
-parser.add_argument("--retrain_bool", default=False)
+parser.add_argument("--resume", default=1)
+parser.add_argument("--prune_bool", default=1)
+parser.add_argument("--retrain_bool", default=1)
 parser.add_argument("--model", default="None")
 # parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 save_accuracy=65.0
