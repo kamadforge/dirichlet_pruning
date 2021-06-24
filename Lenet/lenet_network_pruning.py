@@ -22,32 +22,32 @@ import argparse
 # PARAMS
 
 arguments=argparse.ArgumentParser()
-arguments.add_argument("--arch", default="6,7,34,16")
+arguments.add_argument("--arch", default="8,20,50,20") #10,20,500,800
 arguments.add_argument("--folder")
-arguments.add_argument("--method", default="shapley") #switch_itegral, swithc_point, fisher, l1, l2, random
+arguments.add_argument("--method", default="fisher") #switch_itegral, swithc_point, fisher, l1, l2, random
 arguments.add_argument("--switch_samps", default=150, type=int)
 arguments.add_argument("--switch_comb", default='train') #train, load
-arguments.add_argument("--layer", default=None)
+arguments.add_argument("--layer", default="c3.weight")
 #shapley
 arguments.add_argument("--shap_method", default="combin")
-arguments.add_argument("--load_file", default=0, type=int)
-arguments.add_argument("--k_num", default=6, type=int)
+arguments.add_argument("--load_file", default=1, type=int)
+arguments.add_argument("--k_num", default=5, type=int)
 arguments.add_argument("--shap_sample_num", default=30, type=int)
 arguments.add_argument("--adding", default=0, type=int)
 
 arguments.add_argument("--dataset", default="mnist")
-arguments.add_argument("--early_stopping", default=500, type=int)
+arguments.add_argument("--early_stopping", default=1, type=int) #500
 arguments.add_argument("--batch_size", default=105, type=int)
-arguments.add_argument("--trainval_perc", default=0.8, type=float)
+arguments.add_argument("--trainval_perc", default=1.0, type=float)
 
-arguments.add_argument("--resume", default=False, type=int)
-arguments.add_argument("--prune_bool", default=False, type=int)
-arguments.add_argument("--retrain", default=False, type=int)
+arguments.add_argument("--resume", default=1, type=int)
+arguments.add_argument("--prune_bool", default=1, type=int)
+arguments.add_argument("--retrain", default=0, type=int)
 
 arguments.add_argument("--path_checkpoint_load", default=
-#"checkpoint/scratch/mnist/mnist_trainval_0.8_epo_473_acc_99.07")
+"checkpoint/scratch/mnist/mnist_trainval_0.8_epo_473_acc_99.07")
 #"checkpoint/scratch/mnist/mnist_trainval_0.8_epo_462_acc_99.05")
-"checkpoint/scratch/mnist/mnist_trainval_0.8_epo_424_acc_99.05")
+#"checkpoint/scratch/mnist/mnist_trainval_0.8_epo_424_acc_99.05")
 #"checkpoint/scratch/mnist/mnist_trainval_0.8_epo_449_acc_99.04")
 #"checkpoint/scratch/mnist/mnist_trainval_0.8_epo_554_acc_99.04")
 arguments.add_argument("--path_checkpoint_save", default="checkpoint")
@@ -110,7 +110,6 @@ from module_lenet import Lenet
 
 ###################################################
 # DATA
-
 if dataset=="fashionmnist":
     train_loader, test_loader, val_loader = load_fashionmnist(args.batch_size, args.trainval_perc)
 elif dataset=="mnist":
@@ -122,6 +121,7 @@ elif dataset=="mnist":
 device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
 nodesNum1, nodesNum2, nodesFc1, nodesFc2=10,20,100,25
+#nodesNum1, nodesNum2, nodesFc1, nodesFc2=20,50,800,500
 net=Lenet(nodesNum1,nodesNum2,nodesFc1,nodesFc2).to(device)
 criterion = nn.CrossEntropyLoss()
 #optimizer=optim.Adam(net.parameters(), lr=0.001)
@@ -130,7 +130,7 @@ optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9, weight_decay=5e-
 ######################################
 #LOADING MODEL/RESUME
 
-def load_model(path_checkpoint_load):
+def load_model(path_checkpoint_load, net=net):
 
     print("Loading from... ", path_checkpoint_load)
     if path_checkpoint_load is None:
@@ -253,11 +253,10 @@ def train(thresh=[-1,-1,-1,-1]):
 
 
 
-def finetune():
+def finetune(net_finetune=net):
 
     # switch to train mode
-    net.train()
-
+    net_finetune.train()
 
     dataiter = iter(train_loader)
 
@@ -272,7 +271,7 @@ def finetune():
 
         input, target = input.to(device), target.to(device)
         # compute output
-        output = net(input)
+        output = net_finetune(input)
         loss = criterion(output, target)
         # compute gradient and do SGD step
         optimizer.zero_grad()
@@ -294,10 +293,16 @@ def get_ranks(method, path_checkpoint):
                          np.random.permutation(nodesFc1), np.random.permutation(nodesFc2)]
 
     elif method == 'fisher':
-        finetune()
+
+        from methods.fisher_lenet import Lenet_fisher
+        net_fisher = Lenet_fisher(nodesNum1, nodesNum2, nodesFc1, nodesFc2).to(device)
+
+        net_fisher, path_checkpoint_load_ret = load_model(args.path_checkpoint_load, net_fisher)
+
+        finetune(net_fisher)
         combinationss=[]
         for i in range(4):
-            fisher_rank=np.argsort(net.running_fisher[i].detach().cpu().numpy())[::-1]
+            fisher_rank=np.argsort(net_fisher.running_fisher[i].detach().cpu().numpy())[::-1]
             combinationss.append(fisher_rank)
 
     elif method == 'shapley':
@@ -483,7 +488,7 @@ if resume:
         methods = [args.method]
         for method in methods:
             print("\n\n %s \n" % method)
-            combinationss, combinationss_dic = get_ranks(method, path_checkpoint_load_ret);
+            combinationss = get_ranks(method, path_checkpoint_load_ret);
             print("\nRanking:")
             for comb in combinationss:
                 print(",".join(map(str, comb)))

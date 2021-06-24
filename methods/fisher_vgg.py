@@ -1,6 +1,4 @@
 import torch.nn as nn
-import torch.nn.functional as f
-
 
 class Identity(nn.Module):
     def __init__(self):
@@ -9,9 +7,9 @@ class Identity(nn.Module):
     def forward(self, x):
         return x
 
-class Lenet_fisher(nn.Module):
+class Lenet(nn.Module):
     def __init__(self, nodesNum1, nodesNum2, nodesFc1, nodesFc2):
-        super(Lenet_fisher, self).__init__()
+        super(Lenet, self).__init__()
 
         self.nodesNum2=nodesNum2
 
