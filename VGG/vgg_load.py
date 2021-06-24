@@ -77,7 +77,7 @@ parser.add_argument("--pruned_arch", default='34,34,60,60,70,101,97,88,95,85,86,
 #parser.add_argument("--arch", default='25,25,65,80,201,158,159,460,450,490,470,465,465,450')
 # ar.add_argument("-arch", default=[21,20,65,80,201,147,148,458,436,477,454,448,445,467,441])
 parser.add_argument('--layer', help="layer to prune", default=None)
-parser.add_argument("--method", default='shapley') #switch, l1, l2
+parser.add_argument("--method", default='fisher') #switch, l1, l2
 parser.add_argument("--dataset", default="cifar")
 parser.add_argument("--trainval_perc", default=0.8, type=float)
 
@@ -93,8 +93,8 @@ parser.add_argument("--k_num", default=10)
 parser.add_argument("--shap_sample_num", default=2, type=int)
 parser.add_argument("--adding", default=0, type=int)
 #general
-parser.add_argument("--resume", default=False, type=int)
-parser.add_argument("--prune_bool", default=False, type=int)
+parser.add_argument("--resume", default=1, type=int)
+parser.add_argument("--prune_bool", default=1, type=int)
 parser.add_argument("--retrain_bool", default=False, type=int)
 parser.add_argument("--model", default="None")
 # parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
@@ -167,9 +167,11 @@ def train(epoch):
 
 ###############################################################
 
-def finetune():
+def finetune(net=net):
     # switch to train mode
     net.train()
+
+    net.to(device)
 
     dataiter = iter(trainloader)
 
@@ -262,7 +264,7 @@ def testval(net=net, mode="val"):
 
 
 
-def load_model(test_bool=True):
+def load_model(test_bool=True, net=net):
     # Load checkpoint.
     # print('==> Resuming from checkpoint..')
     # assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
@@ -391,16 +393,20 @@ def prune_and_retrain(thresh):
         ####################################################################
         elif method == 'fisher':
             # in the process of finetuning we accumulate the gradient information that w eadd for each batch. We use this gradient info for constructing a ranking.
-            net.module.reset_fisher()
-            finetune()
+            from methods.fisher_vgg import VGG_fisher
+            net_fisher = VGG_fisher(arch)
+            load_model(False, net_fisher)
+
+            net_fisher.reset_fisher() #.net_fisher.module.reset_fisher
+            finetune(net_fisher)
             combinationss = []
             for i in range(14):
-                fisher_rank = torch.argsort(net.module.running_fisher[i], descending=True)
+                fisher_rank = torch.argsort(net_fisher.running_fisher[i], descending=True)
                 combinationss.append(fisher_rank.detach().cpu())
             # these numbers from the beginning will be cut off, meaning the worse will be cut off
             for i in range(len(combinationss)):
                 combinationss[i] = torch.LongTensor(combinationss[i][thresh[i]:])
-            print(combinationss[1])
+            print(f"E.g., cut off {len(combinationss[1])} channels from the 2nd layer: {combinationss[1]}")
 
         # # PRINT THE PRUNED ARCHITECTURE
         # remaining = []
