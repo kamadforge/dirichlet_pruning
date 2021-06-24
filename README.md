@@ -62,28 +62,28 @@ python main_prune.py --arch 75,85,80,80,159,159,154,159,315,315,314,316
 
 ### VGG
 
+Please find all the available flags in the `VGG/vgg_load.py`
+
+For basic run:
+
+``cd VGG``
+
 #### 1. To train the base network run:
 
-```python vgg_main2_tomodule.py```
-
-#### 2. Then compute the switch vectors
-
-```python main2vgg_switch_point.py --layer conv1 --path_switch_checkpoint <path>```
+```python vgg_load.py --resume 0 --prune_bool 0 --retrain_bool 0```
 
 
-The above file will run the switches only for one layer. If you would like to compute it for all the layers you may run
 
-```python script_vgg_vggswitch.py```
+#### 2b. Select a pruning method
 
-However, you need to specify first the checkpoint trained in the step 1 in the `main2vgg_switch_point.py` in line 394
+For example, select fisher pruning:
 
-
-#### 3. Prune and retrain
+``python vgg_load.py --resume 0 --prune_bool 0 --retrain_bool 0 --method fisher``
 
 
-```python vgg_main2_tomodule.py --model <path_to_model>```
 
-You may specify the architecture and training parameters with the arguments provided in the file.
+
+
 
 
 
