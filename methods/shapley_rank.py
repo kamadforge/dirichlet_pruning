@@ -129,9 +129,9 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
                 file_name = f"../methods/sv/{net_name}/combin/combin_pruning_{checkpoint_name}_{layer_name}"
                 file_name_new = file_name + "_new.txt"
 
-                if os.path.isfile(file_name_new):
-                    dic, nodes_num = readdata_notsampled(file_name_new, acc)
-                    oracle_get(dic, param, shap_rank)
+                #if os.path.isfile(file_name_new):
+                    #dic, nodes_num = readdata_notsampled(file_name_new, acc)
+                    #oracle_get(dic, param, shap_rank)
 
     return shap_ranks, shap_ranks_dic
 
@@ -505,6 +505,7 @@ def readdata_notsampled(file, original_accuracy):
     #original_accuracy2 = float(linesplit[1])
     dict = {(): original_accuracy}
     for line in f:
+        print(line)
         linesplit = line.strip().split(":")
         tup = tuple(int(float(i) )for i in linesplit[0].split(","))
         acc = float(linesplit[1])
