@@ -6,13 +6,14 @@ import numpy as np
 from torch.utils.data.sampler import SubsetRandomSampler
 
 
-def load_imagenet(trainval_perc):
+def load_imagenet(args, trainval_perc=0.9):
     # Data
     print('==> Preparing data..')
-    root_dir = './data/imagenet'
-    train_batch_size = 256
-    val_batch_size = 128
-    num_workers = 8
+    root_dir = args.dir_data
+    train_batch_size = args.batch_size
+    val_batch_size = 512
+    num_workers = args.n_threads
+    print('Number of workers {}'.format(num_workers))
 
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
@@ -50,5 +51,10 @@ def load_imagenet(trainval_perc):
                                              sampler=val_sampler, num_workers=num_workers)
     test_loader = torch.utils.data.DataLoader(testset, batch_size=val_batch_size, num_workers=num_workers)
 
-
+    # from IPython import embed; embed()
     return train_loader, test_loader, val_loader
+
+
+class Data:
+    def __init__(self, args):
+        self.loader_train, self.loader_test, self.loader_val = load_imagenet(args)
