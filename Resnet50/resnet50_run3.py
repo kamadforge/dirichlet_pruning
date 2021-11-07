@@ -19,6 +19,7 @@ import torchvision.datasets as datasets
 import torchvision.models as models
 from torch.utils.data.sampler import SubsetRandomSampler
 import numpy as np
+import socket
 
 
 model_names = sorted(name for name in models.__dict__
@@ -39,7 +40,7 @@ parser.add_argument('--epochs', default=90, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('-b', '--batch-size', default=128, type=int,
+parser.add_argument('-b', '--batch-size', default=64, type=int,
                     metavar='N',
                     help='mini-batch size (default: 256), this is the total '
                          'batch size of all GPUs on the current node when '
@@ -82,6 +83,9 @@ best_acc1 = 0
 
 def main():
     args = parser.parse_args()
+    if socket.gethostname() != 'kamilblade':
+        args.data = "/is/cluster/scratch/kamil_old/imagenet/imagenet"
+        args.batch_size = 512
 
     if args.seed is not None:
         random.seed(args.seed)
