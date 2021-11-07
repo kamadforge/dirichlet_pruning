@@ -113,7 +113,7 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
                 if method == "combin":
                     if not file_load:
                         compute_combinations_lenet(True, net, net_name, layer_name, evaluate, dataset, k_num, "zeroing")
-                    dic, nodes_num = readdata_notsampled(file_name_new, acc)
+                    dic, nodes_num = readdata_notsampled_combin(file_name_new, acc)
                     #k_num=1; adding=False
                     print(f"\nExact partial for {k_num} and adding: {adding}")
                     shap_arr = exact_partial(dic, nodes_num, acc, adding, k_num)
@@ -129,29 +129,32 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
                 file_name = f"../methods/sv/{net_name}/combin/combin_pruning_{checkpoint_name}_{layer_name}"
                 file_name_new = file_name + "_new.txt"
 
-                #if os.path.isfile(file_name_new):
-                    #dic, nodes_num = readdata_notsampled(file_name_new, acc)
-                    #oracle_get(dic, param, shap_rank)
+
+                # maybe commented on the server
+                if os.path.isfile(file_name_new):
+                    dic, nodes_num = readdata_notsampled_combin(file_name_new, acc)
+                    oracle_get(dic, param, shap_rank)
+
 
     return shap_ranks, shap_ranks_dic
 
 
-def file_read_npy(meth, net_name, checkpoint_name, layer):
-    if meth=="random":
-        samples_most=0
-        for fname in os.listdir(f'../methods/sv/{net_name}/{meth}'):
-            core_name = f"{meth}shap_{checkpoint_name}_{layer}_samp_"
-            if core_name in fname:
-                samp_num_temp = fname.replace(core_name, "")
-                samp_num = samp_num_temp.replace(".npy", "")
-                samples_num = int(samp_num)
-                if samples_num>samples_most:
-                    samples_most = samples_num
-        #loading file
-        path_meth = f"../methods/sv/{net_name}/{meth}/{meth}shap_{checkpoint_name}_{layer}_samp_{samples_most}.npy"
-        randsvs = np.load(path_meth)
-        print(f"Loaded {meth} Shapley file from {path_meth}")
-    return randsvs
+# def file_read_npy(meth, net_name, checkpoint_name, layer):
+#     if meth=="random":
+#         samples_most=0
+#         for fname in os.listdir(f'../methods/sv/{net_name}/{meth}'):
+#             core_name = f"{meth}shap_{checkpoint_name}_{layer}_samp_"
+#             if core_name in fname:
+#                 samp_num_temp = fname.replace(core_name, "")
+#                 samp_num = samp_num_temp.replace(".npy", "")
+#                 samples_num = int(samp_num)
+#                 if samples_num>samples_most:
+#                     samples_most = samples_num
+#         #loading file
+#         path_meth = f"../methods/sv/{net_name}/{meth}/{meth}shap_{checkpoint_name}_{layer}_samp_{samples_most}.npy"
+#         randsvs = np.load(path_meth)
+#         print(f"Loaded {meth} Shapley file from {path_meth}")
+#     return randsvs
 
 
 def file_check(method):
@@ -162,11 +165,11 @@ def file_check(method):
         if os.path.exists(file_old):
             num_lines_old = sum(1 for line in open(file_old, "r"))
             num_lines_new = sum(1 for line in open(file_new, "r"))
-            if num_lines_old > num_lines_new:
-                os.remove(file_new)
-            else:
-                os.remove(file_old)
-                os.rename(file_new, file_old)
+            # if num_lines_old > num_lines_new:
+            #     os.remove(file_new)
+            # else:
+            #     os.remove(file_old)
+            #     os.rename(file_new, file_old)
         else:
             os.rename(file_new, file_old)
 
@@ -505,9 +508,37 @@ def readdata_notsampled(file, original_accuracy):
     #original_accuracy2 = float(linesplit[1])
     dict = {(): original_accuracy}
     for line in f:
-        print(line)
+
+
+
+        #print(line)
         linesplit = line.strip().split(":")
+        #try:
         tup = tuple(int(float(i) )for i in linesplit[0].split(","))
+        #except:
+        #    lala=7
+        acc = float(linesplit[1])
+        #dict[tup] = original_accuracy - acc
+        dict[tup]=acc
+        #print(tup, acc)
+    f.close()
+    return dict, int(nodes_num)
+
+def readdata_notsampled_combin(file, original_accuracy):
+    f = open(file)
+    nodes_num = next(f)[:-1] # number of points, first line of the file only
+    line = next(f)
+    linesplit = line.strip().split(":")
+    original_accuracy2 = float(linesplit[1])
+    dict = {(): original_accuracy2}
+    for line in f:
+        #print(line)
+
+        linesplit = line.strip().split(":")
+        #try:
+        tup = tuple(int(float(i) )for i in linesplit[0].split(","))
+        #except:
+        #    lala=7
         acc = float(linesplit[1])
         #dict[tup] = original_accuracy - acc
         dict[tup]=acc

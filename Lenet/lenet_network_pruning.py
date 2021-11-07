@@ -24,7 +24,7 @@ import argparse
 arguments=argparse.ArgumentParser()
 arguments.add_argument("--arch", default="8,20,50,20") #10,20,500,800
 arguments.add_argument("--folder")
-arguments.add_argument("--method", default="fisher") #switch_itegral, swithc_point, fisher, l1, l2, random
+arguments.add_argument("--method", default="shap") #shap, switch_itegral, swithc_point, fisher, l1, l2, random
 arguments.add_argument("--switch_samps", default=150, type=int)
 arguments.add_argument("--switch_comb", default='train') #train, load
 arguments.add_argument("--layer", default="c3.weight")
