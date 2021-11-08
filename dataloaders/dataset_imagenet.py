@@ -11,7 +11,7 @@ def load_imagenet(args, trainval_perc=0.9):
     print('==> Preparing data..')
     root_dir = args.dir_data
     train_batch_size = args.batch_size
-    val_batch_size = 512
+    val_batch_size = 128
     num_workers = args.n_threads
     print('Number of workers {}'.format(num_workers))
 

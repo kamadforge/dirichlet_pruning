@@ -82,10 +82,13 @@ best_acc1 = 0
 
 
 def main():
+
+    print(torch.cuda.get_device_name(torch.cuda.current_device()))
+
     args = parser.parse_args()
     if socket.gethostname() != 'kamilblade':
         args.data = "/is/cluster/scratch/kamil_old/imagenet/imagenet"
-        args.batch_size = 512
+        args.batch_size = 128
 
     if args.seed is not None:
         random.seed(args.seed)
@@ -125,6 +128,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     if args.gpu is not None:
         print("Use GPU: {} for training".format(args.gpu))
+        
 
     if args.distributed:
         if args.dist_url == "env://" and args.rank == -1:
