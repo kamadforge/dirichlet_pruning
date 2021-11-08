@@ -24,6 +24,7 @@ def oracle(dic, size, nodenum, adding):
     d_keys = list(d_rev)
     d_values = list(d_rev.values())
 
+    # we take the complement of the set
     # adding. we take biggest
     if adding:
         d_keys_comp =[]
@@ -40,9 +41,10 @@ def oracle(dic, size, nodenum, adding):
 
 def oracle_get(dic, param, rank):
     # oracle
-    print("\nOracle adding\n")
+    print("\nOracle adding\n") # adding means its loss is the biggest when removing just one
     good=0; all=0
     for o in range(1, 6):
+        # get the best set of size o
         set_oracle, val_oracle = oracle(dic, o, param.shape[0], True)
         print(f"\nOracle best to add for {param.shape[0] - o}:")
         print(set_oracle, val_oracle)
@@ -129,6 +131,7 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
                 file_name = f"../methods/sv/{net_name}/combin/combin_pruning_{checkpoint_name}_{layer_name}"
                 file_name_new = file_name + "_new.txt"
 
+                # compute the intersection of the rank selected above and the oracle set
                 if os.path.isfile(file_name_new):
                     dic, nodes_num = readdata_notsampled_combin(file_name_new, acc)
                     oracle_get(dic, param, shap_rank)
@@ -574,6 +577,7 @@ def readdata_notsampled_random(file, original_accuracy):
         if i == int(nodes_num):
             i=0
             samps+=1
+            # compute the difference in a permuattion from removing more and mroe nodes
             shaps_part = get_svs(dict, original_accuracy, nodes_num)
             shaps+=shaps_part
             dict = {(): original_accuracy}

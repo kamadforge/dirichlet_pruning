@@ -24,12 +24,12 @@ import argparse
 arguments=argparse.ArgumentParser()
 arguments.add_argument("--arch", default="8,20,50,20") #10,20,500,800
 arguments.add_argument("--folder")
-arguments.add_argument("--method", default="shap") #shap, switch_itegral, swithc_point, fisher, l1, l2, random
+arguments.add_argument("--method", default="shapley") #shap, switch_itegral, swithc_point, fisher, l1, l2, random
 arguments.add_argument("--switch_samps", default=150, type=int)
 arguments.add_argument("--switch_comb", default='train') #train, load
-arguments.add_argument("--layer", default="c3.weight")
+arguments.add_argument("--layer", default="c1.weight")
 #shapley
-arguments.add_argument("--shap_method", default="combin")
+arguments.add_argument("--shap_method", default="kernel") #combin
 arguments.add_argument("--load_file", default=1, type=int)
 arguments.add_argument("--k_num", default=5, type=int)
 arguments.add_argument("--shap_sample_num", default=30, type=int)
@@ -45,8 +45,8 @@ arguments.add_argument("--prune_bool", default=1, type=int)
 arguments.add_argument("--retrain", default=0, type=int)
 
 arguments.add_argument("--path_checkpoint_load", default=
-"checkpoint/scratch/mnist/mnist_trainval_0.8_epo_473_acc_99.07")
-#"checkpoint/scratch/mnist/mnist_trainval_0.8_epo_462_acc_99.05")
+#"checkpoint/scratch/mnist/mnist_trainval_0.8_epo_473_acc_99.07")
+"checkpoint/scratch/mnist/mnist_trainval_0.8_epo_462_acc_99.05")
 #"checkpoint/scratch/mnist/mnist_trainval_0.8_epo_424_acc_99.05")
 #"checkpoint/scratch/mnist/mnist_trainval_0.8_epo_449_acc_99.04")
 #"checkpoint/scratch/mnist/mnist_trainval_0.8_epo_554_acc_99.04")
