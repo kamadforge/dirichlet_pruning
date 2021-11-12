@@ -67,21 +67,26 @@ def oracle_get(dic, param, rank):
         print(f"Acc remov: {good / float(all)}")
 
 
-def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k_num, method, sample_num, adding, layer=None, criterion="dummy"):
+def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k_num, method, sample_num, adding, layer=None, criterion="dummy", args=None):
     path_file = "sv/Lenet/combin"
     print("Computing Shapley rank in two stages")
     print(f"Shapley method: {method}")
-    acc = evaluate(net, "test")
+    if net_name=="Resnet": #resnet50
+        acc = 76.13
+        #acc = evaluate(dataset, net, criterion, args) # datset is val_laoder
+    else:
+        acc = evaluate(net, "test")
     # compute combinations/ characteristic function
     os.makedirs(f"../methods/sv/{net_name}/{method}", exist_ok=True)
     shap_ranks=[]; shap_ranks_dic = {}
 
     for layer_name, param in net.named_parameters():
-        if layer != None:
-            if layer==layer_name:
-                pass
-            else:
-                continue
+        # for a particular layer indicated in args
+        # if layer != None:
+        #     if layer==layer_name:
+        #         pass
+        #     else:
+        #         continue
 
         if "weight" in layer_name and "bn" not in layer_name and "out" not in layer_name:
             if not net_name == "Resnet" or (net_name == "Resnet" and "layer" in layer_name):
@@ -97,8 +102,8 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
                         f.write((str(param.shape[0])+"\n"))
 
                 if method == "kernel":
-                    if not file_load:
-                        shap_arr = kernshap(True, net, net_name, layer_name, evaluate, dataset, k_num, param, sample_num, "zeroing")
+                    if not file_load: # kernshap writes the results to file
+                        shap_arr = kernshap(True, net, net_name, layer_name, evaluate, dataset, k_num, param, sample_num, "zeroing", args, criterion)
                     dic, nodes_num = readdata_notsampled(file_old, acc)
                     reg = LinearRegression().fit(list(dic.keys())[1:], list(dic.values())[1:])
                     shap_arr = reg.coef_
@@ -301,7 +306,7 @@ def exact_partial(dic, nodesNum, original_acc, adding, K_param=0):
 
 
 
-def check_combination(net, net_name, combination, param, evaluate, params_bias):
+def check_combination(net, net_name, combination, param, evaluate, params_bias, args=None, criterion=None, loader=None):
     combination = torch.LongTensor(combination)
     print(combination)
     params_saved = param[combination].clone()
@@ -313,7 +318,11 @@ def check_combination(net, net_name, combination, param, evaluate, params_bias):
     #print("Sum:\n ", torch.sum(param, axis=(1, 2, 3)))
     if net_name is not "Resnet":
         params_bias[combination] = 0
-    accuracy = evaluate(net, "val")
+
+    if net_name is not "Resnet": #resnet50
+        accuracy = evaluate(net, "val")
+    else:
+        accuracy = evaluate(loader, net, criterion, args)
 
     param.data[combination] = params_saved
     if net_name is not "Resnet":
@@ -325,9 +334,9 @@ def write_file(file_write, comb, acc):
     if file_write:
         with open(file_name_old, "a+") as textfile:
             textfile.write("%s: %.2f\n" % (",".join(str(x) for x in comb), acc))
+            print(f"Saved in {file_name_old}")
 
-
-def kernshap(file_write, net, net_name, layer, evaluate, dataset, k_num, param, samples_num=10, perturbation_method=None):
+def kernshap(file_write, net, net_name, layer, evaluate, dataset, k_num, param, samples_num=10, perturbation_method=None, args=None, criterion=None):
 
             if net_name is not "Resnet":
                 layerbias = layer[:-6] + "bias"  #:3 for lenet
@@ -352,7 +361,7 @@ def kernshap(file_write, net, net_name, layer, evaluate, dataset, k_num, param, 
                 combination2 = np.delete(combination, randint_indextoremove)
                 print(combination[randint_indextoremove])
 
-                acc = check_combination(net, net_name, combination, param, evaluate, params_bias)
+                acc = check_combination(net, net_name, combination, param, evaluate, params_bias, args, criterion, dataset)
 
 
                 combinations_bin[i, combination] = 1
