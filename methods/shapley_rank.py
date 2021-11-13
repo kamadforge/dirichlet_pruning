@@ -88,8 +88,10 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
         #     else:
         #         continue
 
-        if "weight" in layer_name and "bn" not in layer_name and "out" not in layer_name:
-            if not net_name == "Resnet" or (net_name == "Resnet" and "layer" in layer_name):
+        #if "weight" in layer_name and "bn" not in layer_name and "out" not in layer_name:
+        if "weight" in layer_name and "bn" not in layer_name and "out" not in layer_name and "fc" in layer_name: #remove after cvpr2022
+            #if not net_name == "Resnet" or (net_name == "Resnet" and "layer" in layer_name):
+            if not net_name == "Resnet" or (net_name == "Resnet" and "fc" in layer_name):
 
                 print("Layer: ", layer_name)
                 global file_name, file_name_new, file_name_old

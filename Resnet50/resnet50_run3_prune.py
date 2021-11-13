@@ -20,7 +20,11 @@ import torchvision.models as models
 from torch.utils.data.sampler import SubsetRandomSampler
 import numpy as np
 import socket
-import sys
+
+import os,sys,inspect
+current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parent_dir = os.path.dirname(current_dir)
+sys.path.insert(0, parent_dir)
 
 #from models.resnet50 import resnet50
 from models.resnet_im_ex import resnet50
@@ -61,7 +65,7 @@ parser.add_argument('-p', '--print-freq', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
-parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_false',
+parser.add_argument('-e', '--evaluate', dest='evaluate', default=0, type=int,
                     help='evaluate model on validation set')
 parser.add_argument('--pretrained', dest='pretrained', action='store_false',
                     help='use pre-trained model')
@@ -95,7 +99,7 @@ parser.add_argument("--shap_sample_num", default=1, type=int)
 parser.add_argument("--adding", default=0, type=int) #for combin/oracle
 
 
-parser.add_argument("--prune", default=1, type=int)
+parser.add_argument("--prune", default=0, type=int)
 parser.add_argument("--pruned_arch", default="11,18,30")
 
 parser.add_argument("--dataset", default="imagenet")
@@ -107,11 +111,12 @@ best_acc1 = 0
 def main():
 
     print(torch.cuda.get_device_name(torch.cuda.current_device()))
+    print("Device count: ", torch.cuda.device_count())
 
     args = parser.parse_args()
     if socket.gethostname() != 'kamilblade':
         args.data = "/is/cluster/scratch/kamil_old/imagenet/imagenet"
-        args.batch_size = 128
+        #args.batch_size = 512 #128 1 gpu
 
     if args.seed is not None:
         random.seed(args.seed)
@@ -228,6 +233,7 @@ def main_worker(gpu, ngpus_per_node, args):
             model.features = torch.nn.DataParallel(model.features)
             model.cuda()
         else:
+            print("Dataparallel")
             model = torch.nn.DataParallel(model).cuda()
 
     # define loss function (criterion) and optimizer

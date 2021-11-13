@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import math
 import torch.utils.model_zoo as model_zoo
+import socket
 
 
 __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
@@ -202,7 +203,11 @@ def resnet50(pretrained=False, **kwargs):
     model = ResNet(Bottleneck, [3, 4, 6, 3], **kwargs)
     if pretrained:
         #model.load_state_dict(model_zoo.load_url(model_urls['resnet50']))
-        ma = torch.load("/home/kamil/Dropbox/Current_research/publish/publish_dirichlet/Resnet50/checkpoint/scratch/resnet50-19c8e357.pth")
+        if socket.gethostname()=='kamilblade':
+            ma = torch.load("/home/kamil/Dropbox/Current_research/publish/publish_dirichlet/Resnet50/checkpoint/scratch/resnet50-19c8e357.pth")
+        else:
+            ma = torch.load("/home/kadamczewski/Dropbox_from/Current_research/publish/dirichlet_pruning/Resnet50/checkpoint/scratch/resnet50-19c8e357.pth")
+        
         model.load_state_dict(ma)
     return model
 
