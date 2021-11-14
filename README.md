@@ -82,9 +82,10 @@ For example, select fisher pruning:
 
 
 
+### Resnet 50
 
 
-
-
+cd Resnet50
+python resnet50_run3.py --data "/home/kamil/Dropbox/Current_research/data/imagenet/imagenet"
 
 

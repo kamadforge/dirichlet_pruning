@@ -37,7 +37,7 @@ model_names = sorted(name for name in models.__dict__
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('--data', metavar='DIR',
-                    help='path to dataset', default="/home/kamil/Dropbox/Current_research/data/imagenet/imagenet")
+                    help='path to dataset', default="/is/cluster/scratch/kamil_old/imagenet/imagenet")
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
                     choices=model_names,
                     help='model architecture: ' +
@@ -63,12 +63,7 @@ parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float,
                     dest='weight_decay')
 parser.add_argument('-p', '--print-freq', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
-parser.add_argument('--resume', default='', type=str, metavar='PATH',
-                    help='path to latest checkpoint (default: none)')
-parser.add_argument('-e', '--evaluate', dest='evaluate', default=0, type=int,
-                    help='evaluate model on validation set')
-parser.add_argument('--pretrained', dest='pretrained', action='store_false',
-                    help='use pre-trained model')
+
 parser.add_argument('--world-size', default=-1, type=int,
                     help='number of nodes for distributed training')
 parser.add_argument('--rank', default=-1, type=int,
@@ -87,21 +82,28 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
                          'fastest way to use PyTorch for either single node or '
                          'multi node data parallel training')
 
+parser.add_argument('--resume', default='', type=str, metavar='PATH',
+                    help='path to latest checkpoint (default: none)')
+parser.add_argument('-e', '--evaluate', dest='evaluate', default=0, type=int,
+                    help='evaluate model on validation set')
+parser.add_argument('--pretrained', dest='pretrained', action='store_false',
+                    help='use pre-trained model')
 
 parser.add_argument("--rank_method", default="shapley")
 parser.add_argument("--layer", default="module.layer1.0.conv1.weight")
 
 #shapley
 parser.add_argument("--shap_method", default="kernel")
-parser.add_argument("--load_file", default=0, type=int)
+parser.add_argument("--load_file", default=1, type=int) #loads texfile with shapley coalitions
 parser.add_argument("--k_num", default=None)
 parser.add_argument("--shap_sample_num", default=1, type=int)
 parser.add_argument("--adding", default=0, type=int) #for combin/oracle
 
 
-parser.add_argument("--prune", default=0, type=int)
-parser.add_argument("--pruned_arch", default="11,18,30")
-
+parser.add_argument("--prune", default=1, type=int)
+parser.add_argument("--pruned_arch_ins", default="42,80,130,250") #remaining, not what we prune
+parser.add_argument("--pruned_arch_out", default="50, 110, 240, 390, 704,1648") #remaining, not what we prune
+#parser.add_argument("--pruned_arch", default="23,67,130,260")
 parser.add_argument("--dataset", default="imagenet")
 
 
@@ -114,8 +116,8 @@ def main():
     print("Device count: ", torch.cuda.device_count())
 
     args = parser.parse_args()
-    if socket.gethostname() != 'kamilblade':
-        args.data = "/is/cluster/scratch/kamil_old/imagenet/imagenet"
+    if socket.gethostname() == 'kamilblade':
+            args.data = "/home/kamil/Dropbox/Current_research/data/imagenet/imagenet"
         #args.batch_size = 512 #128 1 gpu
 
     if args.seed is not None:
@@ -349,7 +351,8 @@ def main_worker(gpu, ngpus_per_node, args):
 
         print("\n   Pruning")
         prune_func(model, args, val_loader, criterion)
-        prec1 = validate(val_loader, model, criterion, args)
+        if args.evaluate:
+            prec1 = validate(val_loader, model, criterion, args)
 
     if args.evaluate:
         validate(val_loader, model, criterion, args)
@@ -405,6 +408,13 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         if torch.cuda.is_available():
             target = target.cuda(args.gpu, non_blocking=True)
 
+        # debug
+        #model.module.layer1[0].conv1.weight
+        #print("Debug sum")
+        #rank_layer = ranks["module.layer3.1.conv2.weight"]
+        #output channel (first) that is worst according to the rank, should be 0
+        #print(torch.sum(model.module.layer3[1].conv2.weight[rank_layer[-1]]))
+
         # compute output
         output = model(images)
         loss = criterion(output, target)
@@ -419,6 +429,9 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+
+        if args.prune:
+            zero_params(model, ranks, thresholds_ins, thresholds_out, args)
 
         # measure elapsed time
         batch_time.update(time.time() - end)
@@ -506,7 +519,7 @@ def get_ranks(model, args, val_loader, criterion):
     elif args.rank_method == 'shapley':
         try:
             #validate(val_loader, model, criterion)
-            ranks_list, ranks = shapley_rank.shapley_rank(validate, model, "Resnet", os.path.split(args.resume)[1], val_loader, args.load_file, args.k_num, args.shap_method, args.shap_sample_num, args.adding, args.layer, criterion, args)
+            ranks_list, ranks = shapley_rank.shapley_rank(validate, model, "Resnet50", os.path.split(args.resume)[1], val_loader, args.load_file, args.k_num, args.shap_method, args.shap_sample_num, args.adding, args.layer, criterion, args)
         except KeyboardInterrupt:
             print('Interrupted')
             shapley_rank.file_check()
@@ -521,17 +534,26 @@ def get_ranks(model, args, val_loader, criterion):
 
 #in case of switches we will prune the first conv in block accou=rding to the rankings in the second
 
-def zero_params(model, ranks, thresholds):
+def zero_params(model, ranks, thresholds_ins, thresholds_out, args):
+
+    # for bottlenext input/output
+    global name_conv1, name_conv3
+    name_conv1 = -1
+    name_conv3 = -1  # name of the bottleneck module )in case we want to prune
+    param_conv3 = -1  # sides)
+
     for name, param in model.state_dict().items():
         #print(name)
         #print(param)
+
+
+
         if "layer" in name:
         #if "layer3.8" in name and ("conv2" in name or "bn2" in name):
             # print(f"pruning layer {name}")
             core_name=name[:15]
-            if "conv1.weight" in name:
-                if "2.0" in name:
-                    lala =7
+            # we only look at conv1 because we prune two layer modules and only the output of the 1st and 2nd conv in the module, that is inside bottleneck
+            if "conv1.weight" in name or "conv2.weight" in name:
                 #param1_name=core_name+".parameter1"
                 #rank1 = ranks[()][param1_name]
                 if args.rank_method == "switches":
@@ -539,12 +561,18 @@ def zero_params(model, ranks, thresholds):
                 else:
                     name_ch = name
                 rank1 = ranks[name_ch]
-                channels_bad= rank1[thresholds[core_name]:] #to be removed
+                channels_bad= rank1[thresholds_ins[core_name]:] #to be removed
                 channels_bad = channels_bad if torch.is_tensor(channels_bad) else torch.Tensor(channels_bad.copy()).long()
                 # param.data[:, channels_bad]=0
                 param.data[channels_bad, :] = 0
 
-            elif "conv1.bias" in name or "bn1.bias" in name or "bn1.weight" in name or "bn1.running_var" in name or "bn1.running_mean" in name:
+                # for bottlneck input/output pruning
+                if "conv1.weight" in name:
+                    param_conv1 = param
+                    name_conv1 = name
+                    #print(name_conv1)
+
+            elif "conv1.bias" in name or "bn1.bias" in name or "bn1.weight" in name or "bn1.running_var" in name or "bn1.running_mean" in name or "conv2.bias" in name or "bn2.bias" in name or "bn2.weight" in name or "bn2.running_var" in name or "bn2.running_mean" in name:
                 #rank1 = ranks[()][param1_name]
                 name_orig = core_name +".conv1.weight"
                 if args.rank_method == "switches":
@@ -552,19 +580,56 @@ def zero_params(model, ranks, thresholds):
                 else:
                     name_ch = name_orig
                 rank1 = ranks[name_ch]
-                channels_bad=rank1[thresholds[core_name]:]
+                channels_bad=rank1[thresholds_ins[core_name]:]
                 channels_bad = channels_bad if torch.is_tensor(channels_bad) else torch.Tensor(channels_bad.copy()).long()
                 param.data[channels_bad]=0
+            # if
 
-            # elif "conv2.weight" in name and args.ranks_method == "switches":
-            #     rank2 = ranks[name_orig]
-            #     channels_bad = rank2[thresholds[core_name]:]
-            #     param.data[:, channels_bad] = 0
-            #
-            # elif "conv2.bias" in name or "bn2.bias" in name or "bn2.weight" in name and args.rank_method == "switches":
-            #     rank2 = ranks[()][param2_name]
-            #     channels_bad=rank2[thresholds[core_name]:]
-            #     param.data[channels_bad] = 0
+            ################# side channels
+            if "conv3.weight" in name:
+
+                # param1_name=core_name+".parameter1"
+                # rank1 = ranks[()][param1_name]
+                if args.rank_method == "switches":
+                    name_ch = name.replace("conv1", "conv2")
+                else:
+                    name_ch = name
+                rank1 = ranks[name_ch]
+                # now keeps the same number as in bottleneck, so removed more in the last layer because of dilation
+                channels_bad = rank1[thresholds_out[core_name]:]  # to be removed
+                channels_bad = channels_bad if torch.is_tensor(channels_bad) else torch.Tensor(channels_bad.copy()).long()
+                # param.data[:, channels_bad]=0
+                param.data[channels_bad, :] = 0
+
+                name_conv3 = name
+                channels_bad_conv3 = channels_bad
+
+                # after pruning output to conv3 we prune input to conv1
+                # we do not prune the in of the first con in first layer
+                new_conv1_name = name_conv3.replace("conv3", "conv1")
+                if new_conv1_name == name_conv1 and ".0." not in new_conv1_name:  # saninty check
+                    param_conv1.data[:, channels_bad_conv3] = 0
+                    name_conv3 = -1
+
+            elif "conv3.bias" in name or "bn3.bias" in name or "bn3.weight" in name or "bn3.running_var" in name or "bn3.running_mean" in name:
+                # rank1 = ranks[()][param1_name]
+                name_orig = core_name + ".conv1.weight"
+                if args.rank_method == "switches":
+                    name_ch = name_orig.replace("conv1", "conv2")
+                else:
+                    name_ch = name_orig
+                rank1 = ranks[name_ch]
+                channels_bad = rank1[thresholds_out[core_name]:]
+                channels_bad = channels_bad if torch.is_tensor(channels_bad) else torch.Tensor(channels_bad.copy()).long()
+                param.data[channels_bad] = 0
+
+
+
+
+
+
+
+
 
 
 # module.layer3.8.bn2.weight torch.Size([64])
@@ -576,16 +641,23 @@ def zero_params(model, ranks, thresholds):
 def prune_func(model, args, val_loader, criterion):
 
     # get threshold
-    # global ranks, thresholds
-    # thresholds ={}
-    # preserved = [int(n) for n in args.pruned_arch.split(",")]
-    # preserved = np.insert(preserved, 0, 0) #adding dummy value at the 0th position
-    # for i1 in range(1,4):
-    #     for i2 in range(0,9):
-    #         thresholds[f"module.layer{i1}.{i2}"]=int(preserved[i1])
-    #         #thresholds[f"layer{i1}.{i2}.2"] = preserved[i1]
-    # thresholds[f"module.layer2.0"] = int(preserved[2])
-    # thresholds[f"module.layer3.0"] = int(preserved[3])
+    global ranks, thresholds_ins, thresholds_out
+    thresholds_ins ={}; thresholds_out={}
+    preserved_ins = [int(n) for n in args.pruned_arch_ins.split(",")]
+    preserved_ins = np.insert(preserved_ins, 0, 0) #adding dummy value at the 0th position
+    preserved_out = [int(n) for n in args.pruned_arch_out.split(",")]
+    preserved_out = np.insert(preserved_out, 0, 0)  # adding dummy value at the 0th position
+    for i1 in range(1,5):
+        for i2 in range(0,9):
+            thresholds_ins[f"module.layer{i1}.{i2}"]=int(preserved_ins[i1])
+            thresholds_out[f"module.layer{i1}.{i2}"] = int(preserved_out[i1])
+            #thresholds[f"layer{i1}.{i2}.2"] = preserved[i1]
+    thresholds_ins[f"module.layer2.0"] = int(preserved_ins[2])
+    thresholds_ins[f"module.layer3.0"] = int(preserved_ins[3])
+    thresholds_ins[f"module.layer4.0"] = int(preserved_ins[4])
+    thresholds_out[f"module.layer2.0"] = int(preserved_out[2])
+    thresholds_out[f"module.layer3.0"] = int(preserved_out[3])
+    thresholds_out[f"module.layer4.0"] = int(preserved_out[4])
 
     # get ranks
     print("Getting ranks")
@@ -593,8 +665,8 @@ def prune_func(model, args, val_loader, criterion):
     #print(ranks)
 
     # zero params
-    zero_params(model, ranks, thresholds)
-    print(f"\nThresholds: {thresholds}")
+    zero_params(model, ranks, thresholds_ins, thresholds_out, args)
+    print(f"\nThresholds_ins: {thresholds_ins}, thresholds_out: {thresholds_out}")
 
 
 

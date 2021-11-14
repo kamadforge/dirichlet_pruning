@@ -71,7 +71,7 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
     path_file = "sv/Lenet/combin"
     print("Computing Shapley rank in two stages")
     print(f"Shapley method: {method}")
-    if net_name=="Resnet": #resnet50
+    if net_name=="Resnet50":
         acc = 76.13
         #acc = evaluate(dataset, net, criterion, args) # datset is val_laoder
     else:
@@ -87,11 +87,13 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
         #         pass
         #     else:
         #         continue
+        print(layer_name)
 
-        #if "weight" in layer_name and "bn" not in layer_name and "out" not in layer_name:
-        if "weight" in layer_name and "bn" not in layer_name and "out" not in layer_name and "fc" in layer_name: #remove after cvpr2022
-            #if not net_name == "Resnet" or (net_name == "Resnet" and "layer" in layer_name):
-            if not net_name == "Resnet" or (net_name == "Resnet" and "fc" in layer_name):
+        if "weight" in layer_name and "bn" not in layer_name and "out" not in layer_name:
+            print("Lay")
+        #if "weight" in layer_name and "bn" not in layer_name and "out" not in layer_name and "fc" in layer_name: #remove after cvpr2022
+            if not "Resnet" in net_name or ("Resnet" in net_name and ("layer" in layer_name or "fc" in layer_name or layer_name=="module.conv1.weight")):
+            #if not "Resnet" in net_name or ("Resnet" in net_name and "fc" in layer_name):
 
                 print("Layer: ", layer_name)
                 global file_name, file_name_new, file_name_old
@@ -200,7 +202,7 @@ def compute_combinations_lenet(file_write, net, net_name, layer, evaluate, datas
             if file_write:
                 with open(file_name_new, "a+") as textfile:
                     textfile.write(str(param.shape[0])+"\n")
-            if net_name is not "Resnet":
+            if "Resnet" not in net_name:
                 layerbias = layer[:-6] + "bias" #:3 for lenet
                 params_bias = net.state_dict()[layerbias]
             all_results = {}
@@ -219,7 +221,7 @@ def compute_combinations_lenet(file_write, net, net_name, layer, evaluate, datas
                     #print(combination)
                     # save current values in a placeholder
                     params_saved = param[combination].clone();
-                    if net_name is not "Resnet":
+                    if "Resnet" not in net_name:
                         param_bias_saved = params_bias[combination].clone()
                     # zero out a subset of the channels
                     if perturbation_method == "zeroing":
@@ -312,22 +314,22 @@ def check_combination(net, net_name, combination, param, evaluate, params_bias, 
     combination = torch.LongTensor(combination)
     print(combination)
     params_saved = param[combination].clone()
-    if net_name is not "Resnet":
+    if "Resnet" not in net_name:
         param_bias_saved = params_bias[combination].clone()
 
     #param[combination[0]] = 0
     param.data[combination] = 0
     #print("Sum:\n ", torch.sum(param, axis=(1, 2, 3)))
-    if net_name is not "Resnet":
+    if "Resnet" not in net_name:
         params_bias[combination] = 0
 
-    if net_name is not "Resnet": #resnet50
+    if net_name is not "Resnet50": #resnet50
         accuracy = evaluate(net, "val")
     else:
         accuracy = evaluate(loader, net, criterion, args)
 
     param.data[combination] = params_saved
-    if net_name is not "Resnet":
+    if "Resnet" not in net_name:
         params_bias.data[combination] = param_bias_saved
 
     return accuracy
@@ -340,7 +342,7 @@ def write_file(file_write, comb, acc):
 
 def kernshap(file_write, net, net_name, layer, evaluate, dataset, k_num, param, samples_num=10, perturbation_method=None, args=None, criterion=None):
 
-            if net_name is not "Resnet":
+            if "Resnet" not in net_name:
                 layerbias = layer[:-6] + "bias"  #:3 for lenet
                 params_bias = net.state_dict()[layerbias]
             else:
@@ -379,7 +381,7 @@ def kernshap(file_write, net, net_name, layer, evaluate, dataset, k_num, param, 
 
 def randomshap(file_write, net, net_name, checkpoint_name, layer, evaluate, dataset, k_num, param, samples_num=10,
              perturbation_method=None):
-    if net_name is not "Resnet":
+    if "Resnet" not in net_name :
         layerbias = layer[:-6] + "bias"  #:3 for lenet
         params_bias = net.state_dict()[layerbias]
     else:

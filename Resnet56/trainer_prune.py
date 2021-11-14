@@ -442,9 +442,8 @@ def zero_params(model, ranks, thresholds):
         #if "layer3.8" in name and ("conv2" in name or "bn2" in name):
             # print(f"pruning layer {name}")
             core_name=name[:15]
+            # we only look at conv1 because we prune two layer modules and only the output of the first conv in the module
             if "conv1.weight" in name:
-                if "2.0" in name:
-                    lala =7
                 #param1_name=core_name+".parameter1"
                 #rank1 = ranks[()][param1_name]
                 if args.rank_method == "switches":
