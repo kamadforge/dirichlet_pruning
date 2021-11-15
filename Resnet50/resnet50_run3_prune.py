@@ -118,6 +118,7 @@ def main():
     args = parser.parse_args()
     if socket.gethostname() == 'kamilblade':
             args.data = "/home/kamil/Dropbox/Current_research/data/imagenet/imagenet"
+    print(f"Imagenet data at {args.data}")
         #args.batch_size = 512 #128 1 gpu
 
     if args.seed is not None:
@@ -519,7 +520,7 @@ def get_ranks(model, args, val_loader, criterion):
     elif args.rank_method == 'shapley':
         try:
             #validate(val_loader, model, criterion)
-            ranks_list, ranks = shapley_rank.shapley_rank(validate, model, "Resnet50", os.path.split(args.resume)[1], val_loader, args.load_file, args.k_num, args.shap_method, args.shap_sample_num, args.adding, args.layer, criterion, args)
+            ranks_list, ranks = shapley_rank.shapley_rank(validate, model, "Resnet50", "", val_loader, args.load_file, args.k_num, args.shap_method, args.shap_sample_num, args.adding, args.layer, criterion, args)
         except KeyboardInterrupt:
             print('Interrupted')
             shapley_rank.file_check()
