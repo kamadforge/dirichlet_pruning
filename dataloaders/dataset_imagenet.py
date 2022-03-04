@@ -4,6 +4,9 @@ import torchvision
 import os
 import numpy as np
 from torch.utils.data.sampler import SubsetRandomSampler
+import sys
+import torch.nn.functional as F
+from torchvision.utils import save_image
 
 
 def load_imagenet(args, trainval_perc=0.9):
@@ -33,6 +36,8 @@ def load_imagenet(args, trainval_perc=0.9):
     trainset = datasets.ImageFolder(os.path.join(root_dir, 'train'), transform_train)
     valset = datasets.ImageFolder(os.path.join(root_dir, 'train'), transform_test)
     testset = datasets.ImageFolder(os.path.join(root_dir, 'val'), transform_test)
+
+    # extract val dataset from train dataset
     n_train = len(trainset)
     indices = list(range(n_train))
     np.random.shuffle(indices)
@@ -41,6 +46,9 @@ def load_imagenet(args, trainval_perc=0.9):
 
     assert val_size < n_train
     train_idx, val_idx = indices[val_size:], indices[:val_size]
+
+    # to have a subset of train samples
+    fixed_indices = indices[:2000]
 
     train_sampler = SubsetRandomSampler(train_idx)
     val_sampler = SubsetRandomSampler(val_idx)
@@ -58,3 +66,32 @@ def load_imagenet(args, trainval_perc=0.9):
 class Data:
     def __init__(self, args):
         self.loader_train, self.loader_test, self.loader_val = load_imagenet(args)
+
+    #def downsample(self):
+
+class dotdict(dict):
+    """dot.notation access to dictionary attributes"""
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
+if __name__=="__main__":
+    print("imagenet")
+    args = {}
+    args['dir_data'] = "/home/kamil/Dropbox/Current_research/data/imagenet/imagenet"
+    args['n_threads'] = 0
+    args['batch_size'] = 1
+    args = dotdict(args)
+    print(f"Imagenet data at {args.data}")
+    imagenet = Data(args)
+
+    for i, (images, target) in enumerate(imagenet.loader_train):
+        print(i, target)
+        img = images[0]
+        torch_img_scaled = F.interpolate(img.unsqueeze(0), (32,32), mode='bilinear').squeeze(0)
+        #new_img = torch.nn.Upsample(images, size_new=(32, 32), mode="bilinear")
+        #save_image(img, f"../data/{i}_orig.jpeg")
+        os.makedirs(f"../data/{target.item()}", exist_ok=True)
+        save_image(torch_img_scaled, f"../data/{target.item()}/{i}.jpeg")
+
+
