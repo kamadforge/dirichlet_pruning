@@ -20,6 +20,16 @@ import torchvision.models as models
 from torch.utils.data.sampler import SubsetRandomSampler
 import numpy as np
 import socket
+import datetime
+
+import os,sys,inspect
+current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parent_dir = os.path.dirname(current_dir)
+sys.path.insert(0, parent_dir)
+#from models.resnet50 import resnet50
+from models.resnet_im_ex import resnet50
+from methods import shapley_rank
+
 
 
 model_names = sorted(name for name in models.__dict__
@@ -332,8 +342,12 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
 
     end = time.time()
     for i, (images, target) in enumerate(train_loader):
+
+        #print("bef", datetime.datetime.now())
         # measure data loading time
         data_time.update(time.time() - end)
+        #print(datetime.datetime.now())
+
 
         if args.gpu is not None:
             images = images.cuda(args.gpu, non_blocking=True)
@@ -341,7 +355,9 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
             target = target.cuda(args.gpu, non_blocking=True)
 
         # compute output
+
         output = model(images)
+
         loss = criterion(output, target)
 
         # measure accuracy and record loss
@@ -361,6 +377,8 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
 
         if i % args.print_freq == 0:
             progress.display(i)
+
+        #print("aft", datetime.datetime.now())
 
 
 def validate(val_loader, model, criterion, args):

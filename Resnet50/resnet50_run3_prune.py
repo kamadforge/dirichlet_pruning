@@ -20,6 +20,7 @@ import torchvision.models as models
 from torch.utils.data.sampler import SubsetRandomSampler
 import numpy as np
 import socket
+import datetime
 
 import os,sys,inspect
 current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
@@ -100,9 +101,9 @@ parser.add_argument("--shap_sample_num", default=1, type=int)
 parser.add_argument("--adding", default=0, type=int) #for combin/oracle
 
 
-parser.add_argument("--prune", default=1, type=int)
+parser.add_argument("--prune", default=0, type=int)
 parser.add_argument("--pruned_arch_ins", default="42,80,130,250") #remaining, not what we prune
-parser.add_argument("--pruned_arch_out", default="50, 110, 240, 390, 704,1648") #remaining, not what we prune
+parser.add_argument("--pruned_arch_out", default="50,240,390,704,1648") #remaining, not what we prune
 #parser.add_argument("--pruned_arch", default="23,67,130,260")
 parser.add_argument("--dataset", default="imagenet")
 
@@ -273,6 +274,8 @@ def main_worker(gpu, ngpus_per_node, args):
     # Data loading code
     traindir = os.path.join(args.data, 'train')
     valdir = os.path.join(args.data, 'val')
+
+    ####
     # normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
     #                                  std=[0.229, 0.224, 0.225])
     #
@@ -332,7 +335,7 @@ def main_worker(gpu, ngpus_per_node, args):
     #     train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
     # else:
     #     train_sampler = None
-
+    #
     # train_loader = torch.utils.data.DataLoader(
     #     train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
     #     num_workers=args.workers, pin_memory=True, sampler=train_sampler)
@@ -346,6 +349,8 @@ def main_worker(gpu, ngpus_per_node, args):
     #     ])),
     #     batch_size=args.batch_size, shuffle=False,
     #     num_workers=args.workers, pin_memory=True)
+
+    ##############
 
 
     if args.prune:
@@ -401,6 +406,9 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
 
     end = time.time()
     for i, (images, target) in enumerate(train_loader):
+
+        print("bef", datetime.datetime.now())
+
         # measure data loading time
         data_time.update(time.time() - end)
 
@@ -417,7 +425,9 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         #print(torch.sum(model.module.layer3[1].conv2.weight[rank_layer[-1]]))
 
         # compute output
+
         output = model(images)
+
         loss = criterion(output, target)
 
         # measure accuracy and record loss
@@ -431,8 +441,10 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         loss.backward()
         optimizer.step()
 
+
         if args.prune:
             zero_params(model, ranks, thresholds_ins, thresholds_out, args)
+
 
         # measure elapsed time
         batch_time.update(time.time() - end)
@@ -440,6 +452,8 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
 
         if i % args.print_freq == 0:
             progress.display(i)
+
+        print("aft", datetime.datetime.now())
 
 
 

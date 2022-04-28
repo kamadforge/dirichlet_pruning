@@ -20,6 +20,7 @@ def load_imagenet(args, trainval_perc=0.9):
 
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
+
     transform_train = transforms.Compose([
         transforms.RandomResizedCrop(224),
         transforms.RandomHorizontalFlip(),
@@ -87,11 +88,18 @@ if __name__=="__main__":
 
     for i, (images, target) in enumerate(imagenet.loader_train):
         print(i, target)
-        img = images[0]
-        torch_img_scaled = F.interpolate(img.unsqueeze(0), (32,32), mode='bilinear').squeeze(0)
-        #new_img = torch.nn.Upsample(images, size_new=(32, 32), mode="bilinear")
-        #save_image(img, f"../data/{i}_orig.jpeg")
-        os.makedirs(f"../data/{target.item()}", exist_ok=True)
-        save_image(torch_img_scaled, f"../data/{target.item()}/{i}.jpeg")
+        if i<2000:
+            img = images[0]
+            torch_img_scaled = F.interpolate(img.unsqueeze(0), (32,32), mode='bilinear').squeeze(0)
+            #new_img = torch.nn.Upsample(images, size_new=(32, 32), mode="bilinear")
+            #save_image(img, f"../data/{i}_orig.jpeg")
+            channels=3
+            if channels==1:
+                os.makedirs(f"../data/data1/{target.item()}", exist_ok=True)
+                save_image(torch_img_scaled[1].unsqueeze(0), f"../data/data1/{target.item()}/{i}.jpeg")
+            elif channels==3:
+                os.makedirs(f"../data/data3_32/{target.item()}", exist_ok=True)
+                save_image(torch_img_scaled, f"../data/data3_32/{target.item()}/{i}.jpeg")
+
 
 

@@ -178,6 +178,14 @@ def evaluate(net=net, evaluation="test"):
         correct += (predicted == labels.numpy()).sum().item()
     accuracy = 100 * float(correct) / total
     print("test accuracy: %.2f %%" % (accuracy))
+
+    for name, param in net.state_dict().items():
+        print(name)
+    print("named")
+    for name, param in net.named_parameters():
+        print(name)
+
+
     return accuracy
 
 

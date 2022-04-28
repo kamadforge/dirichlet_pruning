@@ -71,6 +71,7 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
     path_file = "sv/Lenet/combin"
     print("Computing Shapley rank in two stages")
     print(f"Shapley method: {method}")
+    # just to check the original accuracy without any pruning
     if net_name=="Resnet50":
         acc = 76.13
         #acc = evaluate(dataset, net, criterion, args) # datset is val_laoder
