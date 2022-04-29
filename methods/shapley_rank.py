@@ -110,6 +110,9 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
                     if not file_load: # kernshap writes the results to file
                         shap_arr = kernshap(True, net, net_name, layer_name, evaluate, dataset, k_num, param, sample_num, "zeroing", args, criterion)
                     dic, nodes_num = readdata_notsampled(file_old, acc)
+                    print(f"Read from {file_old}")
+                    print(f"Number of samples: {len(dic.keys())}")
+
                     reg = LinearRegression().fit(list(dic.keys())[1:], list(dic.values())[1:])
                     shap_arr = reg.coef_
                     shap_arr=-1*shap_arr

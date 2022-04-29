@@ -87,7 +87,7 @@ parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('-e', '--evaluate', dest='evaluate', default=0, type=int,
                     help='evaluate model on validation set')
-parser.add_argument('--pretrained', dest='pretrained', action='store_false',
+parser.add_argument('--pretrained', dest='pretrained', default=0, type=int,
                     help='use pre-trained model')
 
 parser.add_argument("--rank_method", default="shapley")
@@ -95,7 +95,7 @@ parser.add_argument("--layer", default="module.layer1.0.conv1.weight")
 
 #shapley
 parser.add_argument("--shap_method", default="kernel")
-parser.add_argument("--load_file", default=1, type=int) #loads texfile with shapley coalitions
+parser.add_argument("--load_file", default=0, type=int) #loads texfile with shapley coalitions
 parser.add_argument("--k_num", default=None)
 parser.add_argument("--shap_sample_num", default=1, type=int)
 parser.add_argument("--adding", default=0, type=int) #for combin/oracle
@@ -117,6 +117,9 @@ def main():
     print("Device count: ", torch.cuda.device_count())
 
     args = parser.parse_args()
+    args.pruned_arch_ins = args.pruned_arch_ins.replace("_", ",")
+    args.pruned_arch_out = args.pruned_arch_out.replace("_", ",")
+
     if socket.gethostname() == 'kamilblade':
             args.data = "/home/kamil/Dropbox/Current_research/data/imagenet/imagenet"
     print(f"Imagenet data at {args.data}")
@@ -320,14 +323,21 @@ def main_worker(gpu, ngpus_per_node, args):
     assert val_size < n_train
     train_idx, val_idx = indices[val_size:], indices[:val_size]
 
-    train_sampler = SubsetRandomSampler(train_idx)
+    # to have a subset of train samples
+    train_len = len(indices[val_size:])
+    fixed_train_idx = indices[:int(0.05 * train_len)]
+
+    train_sampler = SubsetRandomSampler(train_idx)  # train_idx
     val_sampler = SubsetRandomSampler(val_idx)
+
 
     train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size,
                                                sampler=train_sampler, num_workers=args.workers)
     valtrain_loader = torch.utils.data.DataLoader(valset, batch_size=args.batch_size,
                                              sampler=val_sampler, num_workers=args.workers)
     val_loader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, num_workers=args.workers)
+
+    print(f"Train sampler: {len(train_loader.sampler)}, valtrain sampler: {len(valtrain_loader.sampler)}, val sampler: {len(val_loader.sampler)}")
 
     ########
 
@@ -407,7 +417,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
     end = time.time()
     for i, (images, target) in enumerate(train_loader):
 
-        print("bef", datetime.datetime.now())
+        #print("bef", datetime.datetime.now())
 
         # measure data loading time
         data_time.update(time.time() - end)
@@ -453,7 +463,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         if i % args.print_freq == 0:
             progress.display(i)
 
-        print("aft", datetime.datetime.now())
+        #print("aft", datetime.datetime.now())
 
 
 
@@ -506,6 +516,7 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     torch.save(state, filename)
     if is_best:
         shutil.copyfile(filename, 'model_best.pth.tar')
+    print("Saved")
 
 
 def get_ranks(model, args, val_loader, criterion):

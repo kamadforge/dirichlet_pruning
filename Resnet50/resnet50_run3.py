@@ -62,13 +62,13 @@ parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
 parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float,
                     metavar='W', help='weight decay (default: 1e-4)',
                     dest='weight_decay')
-parser.add_argument('-p', '--print-freq', default=10, type=int,
+parser.add_argument('-p', '--print-freq', default=100, type=int,
                     metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
-parser.add_argument('--pretrained', dest='pretrained', action='store_true',
+parser.add_argument('--pretrained', dest='pretrained', default=0, type=int,
                     help='use pre-trained model')
 parser.add_argument('--world-size', default=-1, type=int,
                     help='number of nodes for distributed training')
@@ -266,8 +266,12 @@ def main_worker(gpu, ngpus_per_node, args):
     assert val_size < n_train
     train_idx, val_idx = indices[val_size:], indices[:val_size]
 
-    train_sampler = SubsetRandomSampler(train_idx)
+
+
+    train_sampler = SubsetRandomSampler(fixed_indices)
     val_sampler = SubsetRandomSampler(val_idx)
+
+
 
     train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size,
                                                sampler=train_sampler, num_workers=args.workers)
