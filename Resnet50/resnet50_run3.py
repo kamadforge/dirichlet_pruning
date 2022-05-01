@@ -22,6 +22,9 @@ import numpy as np
 import socket
 import datetime
 
+from dataloaders.dataset_google import load_google
+from dataloaders.dataset_imagenet import load_imagenet
+
 import os,sys,inspect
 current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parent_dir = os.path.dirname(current_dir)
@@ -37,13 +40,13 @@ model_names = sorted(name for name in models.__dict__
     and callable(models.__dict__[name]))
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
-parser.add_argument('--data', metavar='DIR',
+parser.add_argument('--dir_data', metavar='DIR',
                     help='path to dataset', default="/home/kamil/Dropbox/Current_research/data/imagenet/imagenet")
-parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
+parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
                     choices=model_names,
                     help='model architecture: ' +
                         ' | '.join(model_names) +
-                        ' (default: resnet18)')
+                        ' (default: resnet18)') #resnet18, resnet50
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 parser.add_argument('--epochs', default=90, type=int, metavar='N',
@@ -87,8 +90,10 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
                          'N processes per node, which has N GPUs. This is the '
                          'fastest way to use PyTorch for either single node or '
                          'multi node data parallel training')
+parser.add_argument('--dataset', default="google")
 
 best_acc1 = 0
+
 
 
 def main():
@@ -96,8 +101,16 @@ def main():
     print(torch.cuda.get_device_name(torch.cuda.current_device()))
 
     args = parser.parse_args()
+
+    if args.dataset == "imagenet":
+        args.data = "/home/kamil/Dropbox/Current_research/data/imagenet/imagenet"
+    elif args.dataset == "google":
+        args.data = "/home/kamil/Dropbox/Current_research/data/googl/google_train"
     if socket.gethostname() != 'kamilblade':
-        args.data = "/is/cluster/scratch/kamil_old/imagenet/imagenet"
+        if args.dataset == "imagenet":
+            args.data = "/is/cluster/scratch/kamil_old/imagenet/imagenet"
+        elif args.dataset == "google":
+            args.data = "/is/cluster/scratch/kamil_old/g/google_train"
         args.batch_size = 128
 
     if args.seed is not None:
@@ -235,49 +248,10 @@ def main_worker(gpu, ngpus_per_node, args):
     #     ]))
 
     #######
-
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
-    transform_train = transforms.Compose([
-        transforms.RandomResizedCrop(224),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        normalize,
-    ])
-    transform_test = transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        normalize,
-    ])
-
-    torch.manual_seed(100)
-    trainval_perc = 0.9
-
-    trainset = datasets.ImageFolder(os.path.join(args.data, 'train'), transform_train)
-    valset = datasets.ImageFolder(os.path.join(args.data, 'train'), transform_test)
-    testset = datasets.ImageFolder(os.path.join(args.data, 'val'), transform_test)
-    n_train = len(trainset)
-    indices = list(range(n_train))
-    np.random.shuffle(indices)
-    train_size = int(trainval_perc * len(trainset))
-    val_size = len(trainset) - train_size
-
-    assert val_size < n_train
-    train_idx, val_idx = indices[val_size:], indices[:val_size]
-
-
-
-    train_sampler = SubsetRandomSampler(fixed_indices)
-    val_sampler = SubsetRandomSampler(val_idx)
-
-
-
-    train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size,
-                                               sampler=train_sampler, num_workers=args.workers)
-    valtrain_loader = torch.utils.data.DataLoader(valset, batch_size=args.batch_size,
-                                             sampler=val_sampler, num_workers=args.workers)
-    val_loader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, num_workers=args.workers)
+    if args.dataset == "imagenet":
+        train_loader, trainval_loader, val_loader = load_imagenet(args)
+    elif args.dataset == "google":
+        train_loader, val_loader = load_google(args)
 
     ########
 
