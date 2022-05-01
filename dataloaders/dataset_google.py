@@ -34,8 +34,8 @@ def load_google(args, trainval_perc=0.9):
         normalize,
     ])
 
-    trainset = datasets.ImageFolder(os.path.join(root_dir, 'train'), transform_train)
-    valset = datasets.ImageFolder(os.path.join(root_dir, 'train'), transform_test)
+    trainset = datasets.ImageFolder(root_dir, transform_train)
+    valset = datasets.ImageFolder(root_dir, transform_test)
 
     # extract val dataset from train dataset
     n_train = len(trainset)

@@ -22,8 +22,7 @@ import numpy as np
 import socket
 import datetime
 
-from dataloaders.dataset_google import load_google
-from dataloaders.dataset_imagenet import load_imagenet
+
 
 import os,sys,inspect
 current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
@@ -32,6 +31,9 @@ sys.path.insert(0, parent_dir)
 #from models.resnet50 import resnet50
 from models.resnet_im_ex import resnet50
 from methods import shapley_rank
+
+from dataloaders.dataset_google import load_google
+from dataloaders.dataset_imagenet import load_imagenet
 
 
 
@@ -103,14 +105,14 @@ def main():
     args = parser.parse_args()
 
     if args.dataset == "imagenet":
-        args.data = "/home/kamil/Dropbox/Current_research/data/imagenet/imagenet"
+        args.dir_data = "/home/kamil/Dropbox/Current_research/data/imagenet/imagenet"
     elif args.dataset == "google":
-        args.data = "/home/kamil/Dropbox/Current_research/data/googl/google_train"
+        args.dir_data = "/home/kamil/Dropbox/Current_research/data/googl/google_train"
     if socket.gethostname() != 'kamilblade':
         if args.dataset == "imagenet":
-            args.data = "/is/cluster/scratch/kamil_old/imagenet/imagenet"
+            args.dir_data = "/is/cluster/scratch/kamil_old/imagenet/imagenet"
         elif args.dataset == "google":
-            args.data = "/is/cluster/scratch/kamil_old/g/google_train"
+            args.dir_data = "/is/cluster/scratch/kamil_old/g/google_train"
         args.batch_size = 128
 
     if args.seed is not None:
@@ -233,8 +235,10 @@ def main_worker(gpu, ngpus_per_node, args):
     cudnn.benchmark = True
 
     # Data loading code
-    traindir = os.path.join(args.data, 'train')
-    valdir = os.path.join(args.data, 'val')
+    if args.dataset == "imagenet":
+        traindir = os.path.join(args.dir_data, 'train')
+        valdir = os.path.join(args.dir_data, 'val')
+    
     # normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
     #                                  std=[0.229, 0.224, 0.225])
     #
@@ -407,7 +411,7 @@ def validate(val_loader, model, criterion, args):
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     torch.save(state, filename)
     if is_best:
-        shutil.copyfile(filename, 'model_best.pth.tar')
+        shutil.copyfile(filename, 'model_best_goog.pth.tar')
 
 
 class AverageMeter(object):
