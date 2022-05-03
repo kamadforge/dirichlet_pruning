@@ -30,7 +30,7 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
 #from models.resnet50 import resnet50
 # from models.resnet_im_ex import resnet50 # a version for pruning
-from models.resnet_gn import resnet50, resnet18
+import models.resnet_gn as resnet_gn
 
 from methods import shapley_rank
 
@@ -176,8 +176,8 @@ def main_worker(gpu, ngpus_per_node, args):
         model = models.__dict__[args.arch](pretrained=True)
     else:
         print("=> creating model '{}'".format(args.arch))
-        model = resnet18()
-        #model = models.__dict__[args.arch]()
+        model = resnet_gn.__dict__[args.arch]()
+        #model = models.__dict__[args.arch]() # pytorch original
 
     if not torch.cuda.is_available():
         print('using CPU, this will be slow')
