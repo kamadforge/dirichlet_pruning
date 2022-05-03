@@ -51,7 +51,7 @@ parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
                     help='model architecture: ' +
                         ' | '.join(model_names) +
                         ' (default: resnet18)') #resnet18, resnet50
-parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
+parser.add_argument('-j', '--workers', default=1, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 parser.add_argument('--epochs', default=90, type=int, metavar='N',
                     help='number of total epochs to run')
@@ -114,8 +114,8 @@ def main():
         if args.dataset == "imagenet":
             args.dir_data = "/is/cluster/scratch/kamil_old/imagenet/imagenet"
         elif args.dataset == "google":
-            args.dir_data = "/is/cluster/scratch/kamil_old/g/google_train"
-        args.batch_size = 128
+            args.dir_data = "/home/kadamczewski/Dropbox_from/Current_research/data/goog/google_train"
+            #args.dir_data = "/is/cluster/scratch/kamil_old/g/google_train"
 
     if args.seed is not None:
         random.seed(args.seed)
@@ -136,6 +136,8 @@ def main():
 
     args.distributed = args.world_size > 1 or args.multiprocessing_distributed
 
+    print(args)
+
     ngpus_per_node = torch.cuda.device_count()
     if args.multiprocessing_distributed:
         # Since we have ngpus_per_node processes per node, the total world_size
@@ -147,6 +149,8 @@ def main():
     else:
         # Simply call main_worker function
         main_worker(args.gpu, ngpus_per_node, args)
+
+
 
 
 def main_worker(gpu, ngpus_per_node, args):

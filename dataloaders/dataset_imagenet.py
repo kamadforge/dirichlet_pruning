@@ -15,7 +15,7 @@ def load_imagenet(args, trainval_perc=0.9):
     root_dir = args.dir_data
     train_batch_size = args.batch_size
     val_batch_size = 128
-    num_workers = args.n_threads
+    num_workers = args.workers
     print('Number of workers {}'.format(num_workers))
 
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
