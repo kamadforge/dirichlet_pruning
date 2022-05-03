@@ -34,6 +34,7 @@ def load_google(args, trainval_perc=0.9):
         normalize,
     ])
 
+    print("Root dir: ", root_dir)
     trainset = datasets.ImageFolder(root_dir, transform_train)
     valset = datasets.ImageFolder(root_dir, transform_test)
 

@@ -29,7 +29,9 @@ current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfra
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
 #from models.resnet50 import resnet50
-from models.resnet_im_ex import resnet50
+# from models.resnet_im_ex import resnet50 # a version for pruning
+from models.resnet_gn import resnet50, resnet18
+
 from methods import shapley_rank
 
 from dataloaders.dataset_google import load_google
@@ -55,7 +57,7 @@ parser.add_argument('--epochs', default=90, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('-b', '--batch-size', default=64, type=int,
+parser.add_argument('-b', '--batch-size', default=16, type=int,
                     metavar='N',
                     help='mini-batch size (default: 256), this is the total '
                          'batch size of all GPUs on the current node when '
@@ -170,7 +172,8 @@ def main_worker(gpu, ngpus_per_node, args):
         model = models.__dict__[args.arch](pretrained=True)
     else:
         print("=> creating model '{}'".format(args.arch))
-        model = models.__dict__[args.arch]()
+        model = resnet18()
+        #model = models.__dict__[args.arch]()
 
     if not torch.cuda.is_available():
         print('using CPU, this will be slow')
