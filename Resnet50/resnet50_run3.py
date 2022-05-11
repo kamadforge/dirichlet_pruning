@@ -35,7 +35,7 @@ import models.resnet_gn as resnet_gn
 from methods import shapley_rank
 
 from dataloaders.dataset_google import load_google
-from dataloaders.dataset_imagenet import load_imagenet
+from dataloaders.dataset_imagenet import load_imagenet, load_imagenet_tar
 
 
 
@@ -94,7 +94,7 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
                          'N processes per node, which has N GPUs. This is the '
                          'fastest way to use PyTorch for either single node or '
                          'multi node data parallel training')
-parser.add_argument('--dataset', default="imagenet")
+parser.add_argument('--dataset', default="imagenet_tar")
 
 best_acc1 = 0
 
@@ -261,6 +261,8 @@ def main_worker(gpu, ngpus_per_node, args):
     #######
     if args.dataset == "imagenet":
         train_loader, val_loader, testval_loader = load_imagenet(args)
+    elif args.dataset =="imagenet_tar":
+        train_loader, val_loader, testval_loader = load_imagenet_tar(args)
     elif args.dataset == "google":
         train_loader, val_loader = load_google(args)
 
@@ -322,7 +324,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
     top1 = AverageMeter('Acc@1', ':6.2f')
     top5 = AverageMeter('Acc@5', ':6.2f')
     progress = ProgressMeter(
-        len(train_loader),
+        50000, #len(train_loader),
         [batch_time, data_time, losses, top1, top5],
         prefix="Epoch: [{}]".format(epoch))
 
@@ -376,7 +378,7 @@ def validate(val_loader, model, criterion, args):
     top1 = AverageMeter('Acc@1', ':6.2f')
     top5 = AverageMeter('Acc@5', ':6.2f')
     progress = ProgressMeter(
-        len(val_loader),
+        50000, #len(val_loader),
         [batch_time, losses, top1, top5],
         prefix='Test: ')
 
