@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from torchvision.utils import save_image
 
 
-def load_imagenet(args, trainval_perc=0.9):
+def load_imagenet(args, trainval_perc=1.0):
     # Data
     print('==> Preparing data..')
     root_dir = args.dir_data
@@ -49,9 +49,11 @@ def load_imagenet(args, trainval_perc=0.9):
     train_idx, val_idx = indices[val_size:], indices[:val_size]
 
     # to have a subset of train samples
-    fixed_indices = indices[:2000]
+    fixed_train_idx = indices[:100000]
+    # train_len = len(indices[val_size:])
+    # fixed_train_idx = indices[:int(0.05 * train_len)]
 
-    train_sampler = SubsetRandomSampler(train_idx)
+    train_sampler = SubsetRandomSampler(fixed_train_idx) #train_idx
     val_sampler = SubsetRandomSampler(val_idx)
 
     train_loader = torch.utils.data.DataLoader(trainset, batch_size=train_batch_size,

@@ -94,7 +94,7 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
                          'N processes per node, which has N GPUs. This is the '
                          'fastest way to use PyTorch for either single node or '
                          'multi node data parallel training')
-parser.add_argument('--dataset', default="google")
+parser.add_argument('--dataset', default="imagenet")
 
 best_acc1 = 0
 
@@ -260,7 +260,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     #######
     if args.dataset == "imagenet":
-        train_loader, trainval_loader, val_loader = load_imagenet(args)
+        train_loader, val_loader, testval_loader = load_imagenet(args)
     elif args.dataset == "google":
         train_loader, val_loader = load_google(args)
 
