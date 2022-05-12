@@ -295,6 +295,8 @@ def main_worker(gpu, ngpus_per_node, args):
         if args.distributed:
             train_sampler.set_epoch(epoch)
         adjust_learning_rate(optimizer, epoch, args)
+        
+        print(datetime.datetime.now().strftime("%H:%e %d_%m_%Y"))
 
         # train for one epoch
         train(train_loader, model, criterion, optimizer, epoch, args)

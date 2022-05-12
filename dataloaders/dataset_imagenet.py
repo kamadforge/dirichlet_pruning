@@ -54,7 +54,7 @@ def load_imagenet(args, trainval_perc=1.0):
     # train_len = len(indices[val_size:])
     # fixed_train_idx = indices[:int(0.05 * train_len)]
 
-    train_sampler = SubsetRandomSampler(fixed_train_idx) #train_idx
+    train_sampler = SubsetRandomSampler(train_idx) #train_idx
     val_sampler = SubsetRandomSampler(val_idx)
 
     train_loader = torch.utils.data.DataLoader(trainset, batch_size=train_batch_size,
@@ -73,6 +73,8 @@ def load_imagenet_tar(args, trainval_perc=1.0):
     root_dir = "/home/kamil/Dropbox/Current_research/data/imagenet_tar/imagenet_sample_train.tar" #args.dir_data
     root_dir = "/home/kamil/Dropbox/Current_research/data/imagenet_tar/dataset-%06d.tar"
     root_dir = "/home/kamil/Dropbox/Current_research/data/imagenet_tar/dataset-{000000..000003}.tar"
+    root_dir_test = "/is/cluster/scratch/kamil_old/imagenet/imagenet/imagenet_test-{000000..000049}.tar"
+    root_dir_train = "/is/cluster/scratch/kamil_old/imagenet/imagenet/imagenet_train-{000000..001281}.tar"
 
     train_batch_size = args.batch_size
     val_batch_size = 128
@@ -96,63 +98,20 @@ def load_imagenet_tar(args, trainval_perc=1.0):
     ])
 
     train_dataset_tar = (
-        wds.WebDataset(root_dir).shuffle(1000).decode("pil").rename(image="input.pyd", i="output.pyd").map_dict(image=transform_train).to_tuple(
+        wds.WebDataset(root_dir_train).shuffle(1000).decode("pil").rename(image="input.pyd", i="output.pyd").map_dict(image=transform_train).to_tuple(
             "image", "i"))
 
-    x, y = next(iter(train_dataset_tar))
-    print(x.shape, str(y)[:50])
+    #x, y = next(iter(train_dataset_tar))
+    #print(x.shape, str(y)[:50])
 
-    # train_dataset_tar = (
-    #     wds.WebDataset(root_dir).shuffle(1000).decode("pil").rename(image="jpg;png", i="json").map_dict(image=transform_train).to_tuple(
-    #         "image", "i"))
 
-    # train_dataset_tar = (
-    #     wds.WebDataset(root_dir)
-    #         .shuffle(1000)
-    #         .decode("pil")
-    #         .rename(image="jpg;png", data="json")
-    #         #.map_dict(image=preproc)
-    #         #.to_tuple("image", "info")
-    # )
-
-    test_dataset_tar = (
-        wds.WebDataset(root_dir)
-            .shuffle(1000)
-            .decode("pil")
-            .rename(image="jpg;png", data="json")
-            .map_dict(image=transform_test)
-            .to_tuple("image", "i")
-    )
-
-    # trainset = datasets.ImageFolder(os.path.join(root_dir, 'train'), transform_train)
-    # valset = datasets.ImageFolder(os.path.join(root_dir, 'train'), transform_test)
-    # testset = datasets.ImageFolder(os.path.join(root_dir, 'val'), transform_test)
-
-    # extract val dataset from train dataset
-    # n_train = len(train_dataset_tar)
-    indices = list(range(10000000))
-    # np.random.shuffle(indices)
-    # train_size = int(trainval_perc * len(train_dataset_tar))
-    # val_size = len(train_dataset_tar) - train_size
-
-    # assert val_size < n_train
-    # train_idx, val_idx = indices[val_size:], indices[:val_size]
-
-    # to have a subset of train samples
-    fixed_train_idx = indices[:100000]
-    # train_len = len(indices[val_size:])
-    # fixed_train_idx = indices[:int(0.05 * train_len)]
-
-    train_sampler = SubsetRandomSampler(fixed_train_idx) #train_idx
-    # val_sampler = SubsetRandomSampler(val_idx)
+    test_dataset_tar = (wds.WebDataset(root_dir_test).shuffle(1000).decode("pil").rename(image="input.pyd", i="output.pyd").map_dict(image=transform_train).to_tuple("image", "i"))
 
     train_loader = torch.utils.data.DataLoader(train_dataset_tar, batch_size=train_batch_size, num_workers=num_workers)
-    # val_loader = torch.utils.data.DataLoader(train_dataset_tar, batch_size=val_batch_size,
-    #                                          sampler=val_sampler, num_workers=num_workers)
+    # val_loader = torch.utils.data.DataLoader(train_dataset_tar, batch_size=val_batch_size, sampler=val_sampler, num_workers=num_workers)
     val_loader=None
     test_loader = torch.utils.data.DataLoader(test_dataset_tar, batch_size=val_batch_size, num_workers=num_workers)
 
-    # from IPython import embed; embed()
     return train_loader, test_loader, val_loader
 
 
