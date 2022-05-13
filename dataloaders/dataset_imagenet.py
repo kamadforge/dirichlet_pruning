@@ -8,6 +8,7 @@ import sys
 import torch.nn.functional as F
 from torchvision.utils import save_image
 import webdataset as wds
+import socket
 
 
 def load_imagenet(args, trainval_perc=1.0):
@@ -70,11 +71,15 @@ def load_imagenet(args, trainval_perc=1.0):
 def load_imagenet_tar(args, trainval_perc=1.0):
     # Data
     print('==> Preparing data..')
-    root_dir = "/home/kamil/Dropbox/Current_research/data/imagenet_tar/imagenet_sample_train.tar" #args.dir_data
-    root_dir = "/home/kamil/Dropbox/Current_research/data/imagenet_tar/dataset-%06d.tar"
-    root_dir = "/home/kamil/Dropbox/Current_research/data/imagenet_tar/dataset-{000000..000003}.tar"
-    root_dir_test = "/is/cluster/scratch/kamil_old/imagenet/imagenet/imagenet_test-{000000..000049}.tar"
-    root_dir_train = "/is/cluster/scratch/kamil_old/imagenet/imagenet/imagenet_train-{000000..001281}.tar"
+    if socket.gethostname() != 'kamilblade':
+        root_dir = "/home/kamil/Dropbox/Current_research/data/imagenet_tar/imagenet_sample_train.tar" #args.dir_data
+        root_dir = "/home/kamil/Dropbox/Current_research/data/imagenet_tar/dataset-%06d.tar"
+        root_dir = "/home/kamil/Dropbox/Current_research/data/imagenet_tar/dataset-{000000..000003}.tar"
+        root_dir_test = "/is/cluster/scratch/kamil_old/imagenet/imagenet/imagenet_test-{000000..000049}.tar"
+        root_dir_train = "/is/cluster/scratch/kamil_old/imagenet/imagenet/imagenet_train-{000000..001281}.tar"
+    else:
+        root_dir_train = "/home/kamil/Dropbox/Current_research/data/imagenet_tar/imagenet_sample_train.tar"
+        root_dir_test = "/home/kamil/Dropbox/Current_research/data/imagenet_tar/imagenet_sample_test.tar"
 
     train_batch_size = args.batch_size
     val_batch_size = 128
@@ -97,20 +102,44 @@ def load_imagenet_tar(args, trainval_perc=1.0):
         normalize,
     ])
 
-    train_dataset_tar = (
-        wds.WebDataset(root_dir_train).shuffle(1000).decode("pil").rename(image="input.pyd", i="output.pyd").map_dict(image=transform_train).to_tuple(
+    train_dataset_tar = (wds.WebDataset(root_dir_train).shuffle(1000).decode("pil").rename(image="input.pyd", i="output.pyd").map_dict(image=transform_train).to_tuple(
             "image", "i"))
 
     #x, y = next(iter(train_dataset_tar))
     #print(x.shape, str(y)[:50])
 
 
-    test_dataset_tar = (wds.WebDataset(root_dir_test).shuffle(1000).decode("pil").rename(image="input.pyd", i="output.pyd").map_dict(image=transform_train).to_tuple("image", "i"))
+######
 
-    train_loader = torch.utils.data.DataLoader(train_dataset_tar, batch_size=train_batch_size, num_workers=num_workers)
+    test_dataset_tar = (
+        wds.WebDataset(root_dir_test).shuffle(1000).decode("pil").rename(image="input.pyd", i="output.pyd").map_dict(
+            image=transform_test).to_tuple("image", "i"))
+
+    train_sampler = None
+
+    ###################
+    root_dir_t = args.dir_data
+
+    test_dataset_tar = datasets.ImageFolder(os.path.join(root_dir_t, 'val'), transform_test)
+
+    #    train_dataset_tar = datasets.ImageFolder(os.path.join(root_dir_t, 'train'), transform_train)
+    #    # to have a subset of train samples
+    #    n_train = len(train_dataset_tar)
+    #    indices = list(range(n_train))
+    #    np.random.shuffle(indices)
+    #    fixed_train_idx = indices[:100000]
+    #    train_sampler = SubsetRandomSampler(fixed_train_idx) #train_idx
+    #    print(fixed_train_idx[:10])
+
+    #######################
+
+    train_loader = torch.utils.data.DataLoader(train_dataset_tar, batch_size=train_batch_size, sampler=train_sampler,
+                                               num_workers=num_workers)
     # val_loader = torch.utils.data.DataLoader(train_dataset_tar, batch_size=val_batch_size, sampler=val_sampler, num_workers=num_workers)
-    val_loader=None
+    val_loader = None
     test_loader = torch.utils.data.DataLoader(test_dataset_tar, batch_size=val_batch_size, num_workers=num_workers)
+
+    #######################
 
     return train_loader, test_loader, val_loader
 
