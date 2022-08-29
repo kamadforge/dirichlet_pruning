@@ -1,4 +1,4 @@
-from models.lenet5 import Lenet
+#from models.lenet5 import Lenet
 import torch
 import numpy as np
 from itertools import chain, combinations
@@ -67,7 +67,7 @@ def oracle_get(dic, param, rank):
         print(f"Acc remov: {good / float(all)}")
 
 
-def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k_num, method, sample_num, adding, layer=None, criterion="dummy", args=None):
+def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k_num, method, sample_num, adding, layer=None, criterion="dummy", args=None, path=None):
     path_file = "sv/Lenet/combin"
     print("Computing Shapley rank in two stages")
     print(f"Shapley method: {method}")
@@ -75,10 +75,14 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
     if net_name=="Resnet50":
         acc = 76.13
         #acc = evaluate(dataset, net, criterion, args) # datset is val_laoder
+    elif net_name=="resnet": #from grad_drop
+        acc = evaluate(net, dataset)
     else:
         acc = evaluate(net, "test")
     # compute combinations/ characteristic function
-    os.makedirs(f"../methods/sv/{net_name}/{method}", exist_ok=True)
+    if path is None:
+        path=f"../methods/sv/{net_name}/{method}"
+    os.makedirs(path, exist_ok=True)
     shap_ranks=[]; shap_ranks_dic = {}
 
     for layer_name, param in net.named_parameters():
@@ -98,7 +102,7 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
 
                 print("Layer: ", layer_name)
                 global file_name, file_name_new, file_name_old
-                file_name = f"../methods/sv/{net_name}/{method}/{method}_pruning_{checkpoint_name}_{layer_name}"
+                file_name = f"{path}/{method}_pruning_{checkpoint_name}_{layer_name}"
                 file_name_new = file_name + "_new.txt"
                 file_old = file_name + ".txt"
                 file_name_old = file_name + ".txt"
@@ -318,22 +322,24 @@ def check_combination(net, net_name, combination, param, evaluate, params_bias, 
     combination = torch.LongTensor(combination)
     print(combination)
     params_saved = param[combination].clone()
-    if "Resnet" not in net_name:
+    if "Resnet" not in net_name and "resnet" not in net_name:
         param_bias_saved = params_bias[combination].clone()
 
     #param[combination[0]] = 0
     param.data[combination] = 0
     #print("Sum:\n ", torch.sum(param, axis=(1, 2, 3)))
-    if "Resnet" not in net_name:
+    if "Resnet" not in net_name and "resnet" not in net_name:
         params_bias[combination] = 0
 
-    if net_name is not "Resnet50": #resnet50
+    if net_name is not "Resnet50" and "resnet" not in net_name: #resnet50
         accuracy = evaluate(net, "val")
+    elif "resnet" in net_name:
+        accuracy = evaluate(net, loader)
     else:
         accuracy = evaluate(loader, net, criterion, args)
 
     param.data[combination] = params_saved
-    if "Resnet" not in net_name:
+    if "Resnet" not in net_name and "resnet" not in net_name:
         params_bias.data[combination] = param_bias_saved
 
     return accuracy
@@ -346,7 +352,7 @@ def write_file(file_write, comb, acc):
 
 def kernshap(file_write, net, net_name, layer, evaluate, dataset, k_num, param, samples_num=10, perturbation_method=None, args=None, criterion=None):
 
-            if "Resnet" not in net_name:
+            if "Resnet" not in net_name and "resnet" not in net_name:
                 layerbias = layer[:-6] + "bias"  #:3 for lenet
                 params_bias = net.state_dict()[layerbias]
             else:

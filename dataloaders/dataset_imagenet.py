@@ -133,8 +133,7 @@ def load_imagenet_tar(args, trainval_perc=1.0):
 
     #######################
 
-    train_loader = torch.utils.data.DataLoader(train_dataset_tar, batch_size=train_batch_size, sampler=train_sampler,
-                                               num_workers=num_workers)
+    train_loader = torch.utils.data.DataLoader(train_dataset_tar, batch_size=train_batch_size, sampler=train_sampler,num_workers=num_workers)
     # val_loader = torch.utils.data.DataLoader(train_dataset_tar, batch_size=val_batch_size, sampler=val_sampler, num_workers=num_workers)
     val_loader = None
     test_loader = torch.utils.data.DataLoader(test_dataset_tar, batch_size=val_batch_size, num_workers=num_workers)
