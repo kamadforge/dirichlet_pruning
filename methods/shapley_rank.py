@@ -87,11 +87,11 @@ def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k
 
     for layer_name, param in net.named_parameters():
         # for a particular layer indicated in args
-        # if layer != None:
-        #     if layer==layer_name:
-        #         pass
-        #     else:
-        #         continue
+        if layer != "None":
+            if layer==layer_name:
+                pass
+            else:
+                continue
         print(layer_name)
 
         if "weight" in layer_name and "bn" not in layer_name and "out" not in layer_name:
