@@ -27,12 +27,12 @@ arguments.add_argument("--folder")
 arguments.add_argument("--method", default="shapley") #shap, switch_itegral, swithc_point, fisher, l1, l2, random
 arguments.add_argument("--switch_samps", default=150, type=int)
 arguments.add_argument("--switch_comb", default='train') #train, load
-arguments.add_argument("--layer", default="c1.weight")
+arguments.add_argument("--layer", default="None")
 #shapley
 arguments.add_argument("--shap_method", default="kernel") #combin
-arguments.add_argument("--load_file", default=1, type=int)
+arguments.add_argument("--load_file", default=0, type=int)
 arguments.add_argument("--k_num", default=5, type=int)
-arguments.add_argument("--shap_sample_num", default=30, type=int)
+arguments.add_argument("--shap_sample_num", default=3, type=int)
 arguments.add_argument("--adding", default=0, type=int)
 
 arguments.add_argument("--dataset", default="mnist")
@@ -40,8 +40,8 @@ arguments.add_argument("--early_stopping", default=1, type=int) #500
 arguments.add_argument("--batch_size", default=105, type=int)
 arguments.add_argument("--trainval_perc", default=1.0, type=float)
 
-arguments.add_argument("--resume", default=1, type=int)
-arguments.add_argument("--prune_bool", default=1, type=int)
+arguments.add_argument("--resume", default=0, type=int)
+arguments.add_argument("--prune_bool", default=0, type=int)
 arguments.add_argument("--retrain", default=0, type=int)
 
 arguments.add_argument("--path_checkpoint_load", default=
@@ -110,6 +110,8 @@ from module_lenet import Lenet
 
 ###################################################
 # DATA
+if args.load_file==0:
+    args.trainval_perc=0.9
 if dataset=="fashionmnist":
     train_loader, test_loader, val_loader = load_fashionmnist(args.batch_size, args.trainval_perc)
 elif dataset=="mnist":
@@ -179,11 +181,11 @@ def evaluate(net=net, evaluation="test"):
     accuracy = 100 * float(correct) / total
     print("test accuracy: %.2f %%" % (accuracy))
 
-    for name, param in net.state_dict().items():
-        print(name)
-    print("named")
-    for name, param in net.named_parameters():
-        print(name)
+    # for name, param in net.state_dict().items():
+    #     print(name)
+    # print("named")
+    # for name, param in net.named_parameters():
+    #     print(name)
 
 
     return accuracy
@@ -400,6 +402,7 @@ def threshold_prune_and_retrain(combinationss, thresh):
     the ranks are sorted from best to worst
     thresh is what we keep, combinationss is what we discard
     '''
+    combinationss=combinationss[0]
     for i in range(len(combinationss)):
         combinationss[i] = torch.LongTensor(combinationss[i][thresh[i]:].copy())
     print("\n\nPrunedto:%d_%d_%d_%d\n" % (thresh[0], thresh[1], thresh[2], thresh[3]))
@@ -501,7 +504,7 @@ if resume:
             for comb in combinationss:
                 print(",".join(map(str, comb)))
 
-            if args.layer!=None:
+            if args.layer!="None":
                 break;
 
             acc = threshold_prune_and_retrain(combinationss, [pruned_arch['c1'], pruned_arch['c3'], pruned_arch['c5'],pruned_arch['f6']])

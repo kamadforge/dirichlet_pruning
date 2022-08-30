@@ -29,4 +29,5 @@ def load_mnist(BATCH_SIZE, trainval_perc=1):
         test_dataset,
         batch_size=BATCH_SIZE, shuffle=False)
 
-    return train_loader, test_loader, val_loader
+    # trainval dataset is 1.0 always, and val is a subset of trainval (overlapping)
+    return trainval_dataset, test_loader, val_loader
