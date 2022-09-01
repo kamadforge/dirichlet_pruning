@@ -76,8 +76,8 @@ parser.add_argument("--pruned_arch", default='34,34,60,60,70,101,97,88,95,85,86,
 
 #parser.add_argument("--arch", default='25,25,65,80,201,158,159,460,450,490,470,465,465,450')
 # ar.add_argument("-arch", default=[21,20,65,80,201,147,148,458,436,477,454,448,445,467,441])
-parser.add_argument('--layer', help="layer to prune", default=None)
-parser.add_argument("--method", default='fisher') #switch, l1, l2
+parser.add_argument('--layer', help="layer to prune", default="None")
+parser.add_argument("--method", default='shapley') #switch, l1, l2
 parser.add_argument("--dataset", default="cifar")
 parser.add_argument("--trainval_perc", default=0.8, type=float)
 

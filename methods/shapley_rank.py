@@ -67,7 +67,7 @@ def oracle_get(dic, param, rank):
         print(f"Acc remov: {good / float(all)}")
 
 
-def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k_num, method, sample_num, adding, layer=None, criterion="dummy", args=None, path=None):
+def shapley_rank(evaluate, net, net_name, checkpoint_name, dataset, file_load, k_num, method, sample_num, adding, layer="None", criterion="dummy", args=None, path=None):
     path_file = "sv/Lenet/combin"
     print("Computing Shapley rank in two stages")
     print(f"Shapley method: {method}")
