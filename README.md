@@ -1,4 +1,4 @@
-###To run Lenet compression;
+### Lenet
 
 #### 1. First train the model
 
