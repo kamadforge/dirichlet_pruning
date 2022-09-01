@@ -50,7 +50,7 @@ parser.add_argument('--epochs', default=90, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('-b', '--batch-size', default=64, type=int,
+parser.add_argument('-b', '--batch-size', default=40, type=int,
                     metavar='N',
                     help='mini-batch size (default: 256), this is the total '
                          'batch size of all GPUs on the current node when '
@@ -62,7 +62,7 @@ parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
 parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float,
                     metavar='W', help='weight decay (default: 1e-4)',
                     dest='weight_decay')
-parser.add_argument('-p', '--print-freq', default=10, type=int,
+parser.add_argument('-p', '--print-freq', default=100, type=int,
                     metavar='N', help='print frequency (default: 10)')
 
 parser.add_argument('--world-size', default=-1, type=int,
@@ -85,13 +85,14 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
 
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
-parser.add_argument('-e', '--evaluate', dest='evaluate', default=0, type=int,
+parser.add_argument('-e', '--evaluate', dest='evaluate', default=1, type=int,
                     help='evaluate model on validation set')
-parser.add_argument('--pretrained', dest='pretrained', default=0, type=int,
+parser.add_argument('--pretrained', dest='pretrained', default=1, type=int,
                     help='use pre-trained model')
+parser.add_argument("--train_bool", default=1, type=int)
 
 parser.add_argument("--rank_method", default="shapley")
-parser.add_argument("--layer", default="module.layer1.0.conv1.weight")
+parser.add_argument("--layer", default="None") #module.layer1.0.conv1.weight
 
 #shapley
 parser.add_argument("--shap_method", default="kernel")
@@ -101,7 +102,7 @@ parser.add_argument("--shap_sample_num", default=1, type=int)
 parser.add_argument("--adding", default=0, type=int) #for combin/oracle
 
 
-parser.add_argument("--prune", default=0, type=int)
+parser.add_argument("--prune", default=1, type=int)
 parser.add_argument("--pruned_arch_ins", default="42,80,130,250") #remaining, not what we prune
 parser.add_argument("--pruned_arch_out", default="50,240,390,704,1648") #remaining, not what we prune
 #parser.add_argument("--pruned_arch", default="23,67,130,260")
@@ -317,8 +318,8 @@ def main_worker(gpu, ngpus_per_node, args):
     n_train = len(trainset)
     indices = list(range(n_train))
     np.random.shuffle(indices)
-    train_size = int(trainval_perc * len(trainset))
-    val_size = len(trainset) - train_size
+    trainval_size = int(trainval_perc * len(trainset))
+    val_size = len(trainset) - trainval_size
 
     assert val_size < n_train
     train_idx, val_idx = indices[val_size:], indices[:val_size]
@@ -333,11 +334,14 @@ def main_worker(gpu, ngpus_per_node, args):
 
     train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size,
                                                sampler=train_sampler, num_workers=args.workers)
+
+    trainall_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, num_workers=args.workers)
+
     valtrain_loader = torch.utils.data.DataLoader(valset, batch_size=args.batch_size,
                                              sampler=val_sampler, num_workers=args.workers)
     val_loader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, num_workers=args.workers)
 
-    print(f"Train sampler: {len(train_loader.sampler)}, valtrain sampler: {len(valtrain_loader.sampler)}, val sampler: {len(val_loader.sampler)}")
+    print(f"Train all: {len(trainall_loader)}, train sampler: {len(train_loader.sampler)}, valtrain sampler: {len(valtrain_loader.sampler)}, val sampler: {len(val_loader.sampler)}")
 
     ########
 
@@ -362,42 +366,42 @@ def main_worker(gpu, ngpus_per_node, args):
 
     ##############
 
+    # if args.evaluate:
+    #     validate(val_loader, model, criterion, args)
 
     if args.prune:
 
         print("\n   Pruning")
-        prune_func(model, args, val_loader, criterion)
+        prune_func(model, args, valtrain_loader, criterion)
         if args.evaluate:
             prec1 = validate(val_loader, model, criterion, args)
 
-    if args.evaluate:
-        validate(val_loader, model, criterion, args)
-        return
 
-    for epoch in range(args.start_epoch, args.epochs):
-        if args.distributed:
-            train_sampler.set_epoch(epoch)
-        adjust_learning_rate(optimizer, epoch, args)
+    if args.train_bool:
+        for epoch in range(args.start_epoch, args.epochs):
+            if args.distributed:
+                train_sampler.set_epoch(epoch)
+            adjust_learning_rate(optimizer, epoch, args)
 
-        # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch, args)
+            # train for one epoch
+            train(train_loader, model, criterion, optimizer, epoch, args)
 
-        # evaluate on validation set
-        acc1 = validate(val_loader, model, criterion, args)
+            # evaluate on validation set
+            acc1 = validate(val_loader, model, criterion, args)
 
-        # remember best acc@1 and save checkpoint
-        is_best = acc1 > best_acc1
-        best_acc1 = max(acc1, best_acc1)
+            # remember best acc@1 and save checkpoint
+            is_best = acc1 > best_acc1
+            best_acc1 = max(acc1, best_acc1)
 
-        if not args.multiprocessing_distributed or (args.multiprocessing_distributed
-                and args.rank % ngpus_per_node == 0):
-            save_checkpoint({
-                'epoch': epoch + 1,
-                'arch': args.arch,
-                'state_dict': model.state_dict(),
-                'best_acc1': best_acc1,
-                'optimizer' : optimizer.state_dict(),
-            }, is_best)
+            if not args.multiprocessing_distributed or (args.multiprocessing_distributed
+                    and args.rank % ngpus_per_node == 0):
+                save_checkpoint({
+                    'epoch': epoch + 1,
+                    'arch': args.arch,
+                    'state_dict': model.state_dict(),
+                    'best_acc1': best_acc1,
+                    'optimizer' : optimizer.state_dict(),
+                }, is_best)
 
 
 def train(train_loader, model, criterion, optimizer, epoch, args):
