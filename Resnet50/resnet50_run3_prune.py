@@ -31,14 +31,17 @@ sys.path.insert(0, parent_dir)
 from models.resnet_im_ex import resnet50
 from methods import shapley_rank
 
+from dataloaders.dataset_google import load_google
+from dataloaders.dataset_imagenet import load_imagenet, load_imagenet_tar
+
 
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
     and callable(models.__dict__[name]))
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
-parser.add_argument('--data', metavar='DIR',
-                    help='path to dataset', default="/is/cluster/scratch/kamil_old/imagenet/imagenet")
+parser.add_argument('--dir_data', metavar='DIR',
+                    help='path to dataset', default="/home/kamil/Dropbox/Current_research/data/imagenet/imagenet")
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
                     choices=model_names,
                     help='model architecture: ' +
@@ -104,11 +107,13 @@ parser.add_argument("--shap_sample_num", default=1, type=int)
 parser.add_argument("--adding", default=0, type=int) #for combin/oracle
 
 
-parser.add_argument("--prune", default=1, type=int)
+parser.add_argument("--prune", default=0, type=int)
 parser.add_argument("--pruned_arch_ins", default="42,80,130,250") #remaining, not what we prune
 parser.add_argument("--pruned_arch_out", default="50,240,390,704,1648") #remaining, not what we prune
 #parser.add_argument("--pruned_arch", default="23,67,130,260")
-parser.add_argument("--dataset", default="imagenet")
+parser.add_argument("--dataset", default="imagenet_tar")
+parser.add_argument("--train_len", default=None)
+parser.add_argument("--test_len", default=None)
 
 
 best_acc1 = 0
@@ -131,17 +136,19 @@ def main():
     for r in restart_list:
         with open("restart/"+r, "r") as f:
             lines = f.readlines()
-        if lines[-1]=="taken":
-            continue
-        else:
-            with open("restart/"+r, "a+") as f:
-                f.write("taken")
-                create_new=0
-            args.resume = lines[-1]
+        if len(lines)>0:
+            if lines[-1]=="taken\n":
+                continue
+            else:
+                with open("restart/"+r, "a+") as f:
+                    f.write("taken\n")
+                    create_new=0
+                    args.restart_name = r
+                args.resume = lines[-1].strip()
     if create_new:
         args.restart_name = str(time.time())+".txt"
-        with open("restart/" + r, "a+") as f:
-            f.write("taken")
+        with open("restart/" + args.restart_name, "a+") as f:
+            f.write("taken\n")
 
 
     if socket.gethostname() == 'kamilblade':
@@ -180,7 +187,7 @@ def main():
         # Simply call main_worker function
         main_worker(args.gpu, ngpus_per_node, args)
         with open(args.restart_name, "a+") as f:
-            f.write("taken")
+            f.write("taken\n")
 
 
 def main_worker(gpu, ngpus_per_node, args):
@@ -319,54 +326,62 @@ def main_worker(gpu, ngpus_per_node, args):
 
     #######
 
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
-    transform_train = transforms.Compose([
-        transforms.RandomResizedCrop(224),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        normalize,
-    ])
-    transform_test = transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        normalize,
-    ])
+    if args.dataset == "imagenet":
+        train_loader, val_loader, testval_loader = load_imagenet(args)
+    elif args.dataset =="imagenet_tar":
+        train_loader, val_loader, testval_loader = load_imagenet_tar(args)
+    elif args.dataset == "google":
+        train_loader, val_loader = load_google(args)
 
-    torch.manual_seed(100)
-    trainval_perc = 0.9
-
-    trainset = datasets.ImageFolder(os.path.join(args.data, 'train'), transform_train)
-    valset = datasets.ImageFolder(os.path.join(args.data, 'train'), transform_test)
-    testset = datasets.ImageFolder(os.path.join(args.data, 'val'), transform_test)
-    n_train = len(trainset)
-    indices = list(range(n_train))
-    np.random.shuffle(indices)
-    trainval_size = int(trainval_perc * len(trainset))
-    val_size = len(trainset) - trainval_size
-
-    assert val_size < n_train
-    train_idx, val_idx = indices[val_size:], indices[:val_size]
-
-    # to have a subset of train samples
-    train_len = len(indices[val_size:])
-    fixed_train_idx = indices[:int(0.05 * train_len)]
-
-    train_sampler = SubsetRandomSampler(train_idx)  # train_idx
-    val_sampler = SubsetRandomSampler(val_idx)
-
-
-    train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size,
-                                               sampler=train_sampler, num_workers=args.workers)
-
-    trainall_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, num_workers=args.workers)
-
-    valtrain_loader = torch.utils.data.DataLoader(valset, batch_size=args.batch_size,
-                                             sampler=val_sampler, num_workers=args.workers)
-    val_loader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, num_workers=args.workers)
-
-    print(f"Train all: {len(trainall_loader)}, train sampler: {len(train_loader.sampler)}, valtrain sampler: {len(valtrain_loader.sampler)}, val sampler: {len(val_loader.sampler)}")
+    # before Oct 22
+    # normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+    #                                  std=[0.229, 0.224, 0.225])
+    # transform_train = transforms.Compose([
+    #     transforms.RandomResizedCrop(224),
+    #     transforms.RandomHorizontalFlip(),
+    #     transforms.ToTensor(),
+    #     normalize,
+    # ])
+    # transform_test = transforms.Compose([
+    #     transforms.Resize(256),
+    #     transforms.CenterCrop(224),
+    #     transforms.ToTensor(),
+    #     normalize,
+    # ])
+    #
+    # torch.manual_seed(100)
+    # trainval_perc = 0.9
+    #
+    # trainset = datasets.ImageFolder(os.path.join(args.data, 'train'), transform_train)
+    # valset = datasets.ImageFolder(os.path.join(args.data, 'train'), transform_test)
+    # testset = datasets.ImageFolder(os.path.join(args.data, 'val'), transform_test)
+    # n_train = len(trainset)
+    # indices = list(range(n_train))
+    # np.random.shuffle(indices)
+    # trainval_size = int(trainval_perc * len(trainset))
+    # val_size = len(trainset) - trainval_size
+    #
+    # assert val_size < n_train
+    # train_idx, val_idx = indices[val_size:], indices[:val_size]
+    #
+    # # to have a subset of train samples
+    # train_len = len(indices[val_size:])
+    # fixed_train_idx = indices[:int(0.05 * train_len)]
+    #
+    # train_sampler = SubsetRandomSampler(train_idx)  # train_idx
+    # val_sampler = SubsetRandomSampler(val_idx)
+    #
+    #
+    # train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size,
+    #                                            sampler=train_sampler, num_workers=args.workers)
+    #
+    # trainall_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, num_workers=args.workers)
+    #
+    # valtrain_loader = torch.utils.data.DataLoader(valset, batch_size=args.batch_size,
+    #                                          sampler=val_sampler, num_workers=args.workers)
+    # val_loader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, num_workers=args.workers)
+    #
+    # print(f"Train all: {len(trainall_loader)}, train sampler: {len(train_loader.sampler)}, valtrain sampler: {len(valtrain_loader.sampler)}, val sampler: {len(val_loader.sampler)}")
 
     ########
 
@@ -397,15 +412,15 @@ def main_worker(gpu, ngpus_per_node, args):
     if args.prune:
 
         print("\n   Pruning")
-        prune_func(model, args, valtrain_loader, criterion)
+        prune_func(model, args, val_loader, criterion) # should be testval
         if args.evaluate:
             prec1 = validate(val_loader, model, criterion, args)
 
 
     if args.train_bool:
         for epoch in range(args.start_epoch, args.epochs):
-            if args.distributed:
-                train_sampler.set_epoch(epoch)
+            # if args.distributed:
+            #     train_sampler.set_epoch(epoch)
             adjust_learning_rate(optimizer, epoch, args)
 
             # train for one epoch
@@ -420,13 +435,14 @@ def main_worker(gpu, ngpus_per_node, args):
 
             if not args.multiprocessing_distributed or (args.multiprocessing_distributed
                     and args.rank % ngpus_per_node == 0):
+                filename=args.dataset+"_"+str(epoch+1)+"_"+str(best_acc1.item())+".pth.tar"
                 save_checkpoint({
                     'epoch': epoch + 1,
                     'arch': args.arch,
                     'state_dict': model.state_dict(),
                     'best_acc1': best_acc1,
                     'optimizer' : optimizer.state_dict(),
-                }, is_best, args)
+                }, is_best, args, filename)
 
 
 def train(train_loader, model, criterion, optimizer, epoch, args):
@@ -436,7 +452,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
     top1 = AverageMeter('Acc@1', ':6.2f')
     top5 = AverageMeter('Acc@5', ':6.2f')
     progress = ProgressMeter(
-        len(train_loader),
+        args.train_len,
         [batch_time, data_time, losses, top1, top5],
         prefix="Epoch: [{}]".format(epoch))
 
@@ -502,7 +518,7 @@ def validate(val_loader, model, criterion, args):
     top1 = AverageMeter('Acc@1', ':6.2f')
     top5 = AverageMeter('Acc@5', ':6.2f')
     progress = ProgressMeter(
-        len(val_loader),
+        args.test_len,
         [batch_time, losses, top1, top5],
         prefix='Test: ')
 
@@ -542,10 +558,11 @@ def validate(val_loader, model, criterion, args):
 
 
 def save_checkpoint(state, is_best, args, filename='checkpoint.pth.tar'):
+    filename = "checkpoint/"+ filename
     torch.save(state, filename)
 
     with open("restart/"+args.restart_name, "a+") as file:
-        file.write(filename)
+        file.write(filename+"\n")
 
     if is_best:
         shutil.copyfile(filename, 'model_best.pth.tar')

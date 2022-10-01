@@ -83,6 +83,13 @@ def load_imagenet_tar(args, trainval_perc=1.0):
         root_dir_train = "/home/kamil/Dropbox/Current_research/data/imagenet_tar/imagenet_sample_train.tar"
         root_dir_test = "/home/kamil/Dropbox/Current_research/data/imagenet_tar/imagenet_sample_test.tar"
 
+    import tarfile
+    train_tar = tarfile.open(root_dir_train)
+    args.train_len = int(len(train_tar.getmembers())/2) #input, output
+    test_tar = tarfile.open(root_dir_test)
+    args.test_len = int(len(test_tar.getmembers())/2)
+    print("Train: ", args.train_len, "test: ", args.test_len)
+
     train_batch_size = args.batch_size
     val_batch_size = 128
     num_workers = args.workers
