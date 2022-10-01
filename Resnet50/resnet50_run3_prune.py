@@ -90,6 +90,8 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', default=1, type=int,
 parser.add_argument('--pretrained', dest='pretrained', default=1, type=int,
                     help='use pre-trained model')
 parser.add_argument("--train_bool", default=1, type=int)
+parser.add_argument("--restart", default=0, type=int)
+parser.add_argument("--restart_name", default="")
 
 parser.add_argument("--rank_method", default="shapley")
 parser.add_argument("--layer", default="None") #module.layer1.0.conv1.weight
@@ -114,12 +116,33 @@ best_acc1 = 0
 
 def main():
 
+
+
     print(torch.cuda.get_device_name(torch.cuda.current_device()))
     print("Device count: ", torch.cuda.device_count())
 
     args = parser.parse_args()
     args.pruned_arch_ins = args.pruned_arch_ins.replace("_", ",")
     args.pruned_arch_out = args.pruned_arch_out.replace("_", ",")
+
+    restart_list = os.listdir("restart")
+    random.shuffle(restart_list)
+    create_new=1
+    for r in restart_list:
+        with open("restart/"+r, "r") as f:
+            lines = f.readlines()
+        if lines[-1]=="taken":
+            continue
+        else:
+            with open("restart/"+r, "a+") as f:
+                f.write("taken")
+                create_new=0
+            args.resume = lines[-1]
+    if create_new:
+        args.restart_name = str(time.time())+".txt"
+        with open("restart/" + r, "a+") as f:
+            f.write("taken")
+
 
     if socket.gethostname() == 'kamilblade':
             args.data = "/home/kamil/Dropbox/Current_research/data/imagenet/imagenet"
@@ -156,6 +179,8 @@ def main():
     else:
         # Simply call main_worker function
         main_worker(args.gpu, ngpus_per_node, args)
+        with open(args.restart_name, "a+") as f:
+            f.write("taken")
 
 
 def main_worker(gpu, ngpus_per_node, args):
@@ -401,7 +426,7 @@ def main_worker(gpu, ngpus_per_node, args):
                     'state_dict': model.state_dict(),
                     'best_acc1': best_acc1,
                     'optimizer' : optimizer.state_dict(),
-                }, is_best)
+                }, is_best, args)
 
 
 def train(train_loader, model, criterion, optimizer, epoch, args):
@@ -516,8 +541,12 @@ def validate(val_loader, model, criterion, args):
     return top1.avg
 
 
-def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
+def save_checkpoint(state, is_best, args, filename='checkpoint.pth.tar'):
     torch.save(state, filename)
+
+    with open("restart/"+args.restart_name, "a+") as file:
+        file.write(filename)
+
     if is_best:
         shutil.copyfile(filename, 'model_best.pth.tar')
     print("Saved")

@@ -74,7 +74,7 @@ cd Resnet50
 
 #### To train:
 
-python resnet50_run3_prune.py python python resnet50_run3_prune.py --data <imagenet_data_path> --pretrained 0 --prune 0 --train_bool 1
+python resnet50_run3_prune.py --data <imagenet_data_path> --pretrained 0 --prune 0 --train_bool 1
 
 #### 2. To prune:
 
