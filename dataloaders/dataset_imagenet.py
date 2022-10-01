@@ -75,8 +75,10 @@ def load_imagenet_tar(args, trainval_perc=1.0):
         root_dir = "/home/kamil/Dropbox/Current_research/data/imagenet_tar/imagenet_sample_train.tar" #args.dir_data
         root_dir = "/home/kamil/Dropbox/Current_research/data/imagenet_tar/dataset-%06d.tar"
         root_dir = "/home/kamil/Dropbox/Current_research/data/imagenet_tar/dataset-{000000..000003}.tar"
-        root_dir_test = "/is/cluster/scratch/kamil_old/imagenet/imagenet/imagenet_test-{000000..000049}.tar"
-        root_dir_train = "/is/cluster/scratch/kamil_old/imagenet/imagenet/imagenet_train-{000000..001281}.tar"
+        root_dir_test = "/is/cluster/scratch/kamil_old/imagenet/imagenet/imnet_test/imagenet_test-{000000..000049}.tar"
+        root_dir_train = "/is/cluster/scratch/kamil_old/imagenet/imagenet/train/imnet_train/imagenet_train-{000000..001281}.tar"
+        root_dir_test = "/is/cluster/scratch/kamil_old/imagenet/imagenet/imagenet_test-sample.tar" #all test dataset
+        root_dir_train = "/is/cluster/scratch/kamil_old/imagenet/imagenet/train_random/imagenet_train-{000001..000049}.tar" # randomized imagenet to have all the class representatives in the first few tar files
     else:
         root_dir_train = "/home/kamil/Dropbox/Current_research/data/imagenet_tar/imagenet_sample_train.tar"
         root_dir_test = "/home/kamil/Dropbox/Current_research/data/imagenet_tar/imagenet_sample_test.tar"
@@ -102,8 +104,7 @@ def load_imagenet_tar(args, trainval_perc=1.0):
         normalize,
     ])
 
-    train_dataset_tar = (wds.WebDataset(root_dir_train).shuffle(1000).decode("pil").rename(image="input.pyd", i="output.pyd").map_dict(image=transform_train).to_tuple(
-            "image", "i"))
+    train_dataset_tar = (wds.WebDataset(root_dir_train).shuffle(1000).decode("pil").rename(image="input.pyd", i="output.pyd").map_dict(image=transform_train).to_tuple("image", "i"))
 
     #x, y = next(iter(train_dataset_tar))
     #print(x.shape, str(y)[:50])
@@ -120,7 +121,7 @@ def load_imagenet_tar(args, trainval_perc=1.0):
     ###################
     root_dir_t = args.dir_data
 
-    test_dataset_tar = datasets.ImageFolder(os.path.join(root_dir_t, 'val'), transform_test)
+#    test_dataset_tar = datasets.ImageFolder(os.path.join(root_dir_t, 'val'), transform_test)
 
     #    train_dataset_tar = datasets.ImageFolder(os.path.join(root_dir_t, 'train'), transform_train)
     #    # to have a subset of train samples
@@ -133,8 +134,7 @@ def load_imagenet_tar(args, trainval_perc=1.0):
 
     #######################
 
-    train_loader = torch.utils.data.DataLoader(train_dataset_tar, batch_size=train_batch_size, sampler=train_sampler,
-                                               num_workers=num_workers)
+    train_loader = torch.utils.data.DataLoader(train_dataset_tar, batch_size=train_batch_size, sampler=train_sampler,num_workers=num_workers)
     # val_loader = torch.utils.data.DataLoader(train_dataset_tar, batch_size=val_batch_size, sampler=val_sampler, num_workers=num_workers)
     val_loader = None
     test_loader = torch.utils.data.DataLoader(test_dataset_tar, batch_size=val_batch_size, num_workers=num_workers)
