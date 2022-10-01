@@ -19,7 +19,7 @@ def load_mnist(BATCH_SIZE, trainval_perc=1):
 
     # Load datasets
 
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    train_loader = torch.utils.data.DataLoader(trainval_dataset, batch_size=BATCH_SIZE, shuffle=True)
     if len(val_dataset) >0:
         val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=True)
     else:
@@ -29,4 +29,5 @@ def load_mnist(BATCH_SIZE, trainval_perc=1):
         test_dataset,
         batch_size=BATCH_SIZE, shuffle=False)
 
+    # trainval dataset is 1.0 always, and val is a subset of trainval (overlapping)
     return train_loader, test_loader, val_loader

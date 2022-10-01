@@ -1,6 +1,8 @@
-###To run Lenet compression;
+### Lenet
 
 #### 1. First train the model
+
+``cd Lenet``
 
 ```
 python lenet_network_pruning.py --early_stopping 30
@@ -12,52 +14,28 @@ Then provide the name of the trained mode
 
 Example (choose your own model from step 1):
 ```
-python lenet_network_pruning.py --resume=True --prune_bool=True --path mnist_trainval0.8_epo8_acc98.70
+python lenet_network_pruning.py --method shapley --shap_method kernel --shap_sample_num 30 --path_checkpoint_load checkpoint/scratch/mnist/mnist_trainval_0.8_epo_376_acc_99.05 --load_file 0 --resume 1 --prune_bool 1
 ```
 
 #### 3. To prune and retrain:
 ```
-python lenet_network_pruning.py --resume=True --prune_bool=True --path mnist_trainval0.8_epo8_acc98.70 --retrain=True
+python lenet_network_pruning.py --method shapley --shap_method kernel --shap_sample_num 30 --path_checkpoint_load checkpoint/scratch/mnist/mnist_trainval_0.8_epo_376_acc_99.05 --load_file 0 --resume 1 --prune_bool 1 --retrain 1
 ```
-or
-```
-python lenet_network_pruning.py --resume=True --prune_bool=True --path mnist_trainval0.8_epo8_acc98.70 --switch_comb load --retrain=True
-```
+
 
 Notes:
 
 The default early-stopping value is 500, for trying the code choose a lower value.
 `--early_stopping 30`
-Once you run the switch training once you can load the parameters
-`--switch_comb load`
 Choose an architecture to prune:
 `--arch 8,9,36,17`
-Select between mnist and fashionmnist
-`--dataset fashionmnist`
+Choose the number of shapley samples (the default is 3)
+`--shap_sample_num 100`
+The previously computed Shapley samples can be reused with load_file
+`--load_file 1`
 
 
 
-
-### WideResNet
-
-Along with other settings, the default value for num_epoch=200 can be changed in the config.py
-
-
-#### 1. To train the base network run:
-
-python main.py
-
-
-#### 2. Then compute the switch vectors
-
-python main_switch.py
-
-It is enough to run it for even 1 iteration, 3-5 are recommended.
-
-
-#### 3. To prune and retrain the previously trained model:
-
-python main_prune.py --arch 75,85,80,80,159,159,154,159,315,315,314,316
 
 
 ### VGG
@@ -70,22 +48,43 @@ For basic run:
 
 #### 1. To train the base network run:
 
-```python vgg_load.py --resume 0 --prune_bool 0 --retrain_bool 0```
+```
+python vgg_load.py --resume 1 --prune_bool 1 --retrain_bool 0 --method shapley --shap_method kernel --shap_sample_num 3 --model checkpoint/ckpt_vgg16_94.34.t7
+```
 
+#### 2. To prune:
 
+``python vgg_load.py --resume 1 --prune_bool 1 --retrain_bool 0 --method shapley --shap_method kernel --shap_sample_num 3``
 
-#### 2b. Select a pruning method
+#### 3. To prune and retrain:
 
 For example, select fisher pruning:
 
-``python vgg_load.py --resume 0 --prune_bool 0 --retrain_bool 0 --method fisher``
+``python vgg_load.py --resume 1 --prune_bool 1 --retrain_bool 1 --method shapley --shap_method kernel --shap_sample_num 3``
 
+Choose an architecture to prune:
+`--pruned_arch 34,34,60,60,70,101,97,88,95,85,86,67,61,55,55`
+The previously computed Shapley samples can be reused with load_file
+`--load_file 1`
 
 
 ### Resnet 50
 
-
 cd Resnet50
-python resnet50_run3.py --data "/home/kamil/Dropbox/Current_research/data/imagenet/imagenet"
 
+#### To train:
+
+python resnet50_run3_prune.py --data <imagenet_data_path> --pretrained 0 --prune 0 --train_bool 1
+
+#### 2. To prune:
+
+python resnet50_run3_prune.py --data <imagenet_data_path> --pretrained 1 --prune 1 --train_bool 1 
+
+#### 3. To prune and retrain:
+
+python resnet50_run3_prune.py --data <imagenet_data_path> --pretrained 1 --prune 1 --train_bool 1 
+
+
+The previously computed Shapley samples can be reused with load_file
+`--load_file 1`
 
