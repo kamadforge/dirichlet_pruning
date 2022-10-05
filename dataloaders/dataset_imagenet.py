@@ -42,6 +42,7 @@ def load_imagenet(args, trainval_perc=1.0):
 
     # extract val dataset from train dataset
     n_train = len(trainset)
+    print(n_train)
     indices = list(range(n_train))
     np.random.shuffle(indices)
     train_size = int(trainval_perc * len(trainset))
@@ -51,7 +52,7 @@ def load_imagenet(args, trainval_perc=1.0):
     train_idx, val_idx = indices[val_size:], indices[:val_size]
 
     # to have a subset of train samples
-    fixed_train_idx = indices[:100000]
+    # fixed_train_idx = indices[:100000]
     # train_len = len(indices[val_size:])
     # fixed_train_idx = indices[:int(0.05 * train_len)]
 
@@ -63,6 +64,11 @@ def load_imagenet(args, trainval_perc=1.0):
     val_loader = torch.utils.data.DataLoader(valset, batch_size=val_batch_size,
                                              sampler=val_sampler, num_workers=num_workers)
     test_loader = torch.utils.data.DataLoader(testset, batch_size=val_batch_size, num_workers=num_workers)
+
+    args.train_len = len(trainset)
+    args.test_len = len(testset)
+    
+    print("train: ", args.train_len, "test: ", args.train_len)
 
     # from IPython import embed; embed()
     return train_loader, test_loader, val_loader
@@ -76,18 +82,34 @@ def load_imagenet_tar(args, trainval_perc=1.0):
         root_dir = "/home/kamil/Dropbox/Current_research/data/imagenet_tar/dataset-%06d.tar"
         root_dir = "/home/kamil/Dropbox/Current_research/data/imagenet_tar/dataset-{000000..000003}.tar"
         root_dir_test = "/is/cluster/scratch/kamil_old/imagenet/imagenet/imnet_test/imagenet_test-{000000..000049}.tar"
-        root_dir_train = "/is/cluster/scratch/kamil_old/imagenet/imagenet/train/imnet_train/imagenet_train-{000000..001281}.tar"
-        root_dir_test = "/is/cluster/scratch/kamil_old/imagenet/imagenet/imagenet_test-sample.tar" #all test dataset
-        root_dir_train = "/is/cluster/scratch/kamil_old/imagenet/imagenet/train_random/imagenet_train-{000001..000049}.tar" # randomized imagenet to have all the class representatives in the first few tar files
+        root_dir_train = "/is/cluster/scratch/kamil_old/imagenet/imagenet/imnet_train/imagenet_train-{000000..001281}.tar" # all train 1281
+        #root_dir_test = "/is/cluster/scratch/kamil_old/imagenet/imagenet/imagenet_test-sample.tar" #all test dataset
+        #root_dir_train = "/is/cluster/scratch/kamil_old/imagenet/imagenet/train_random/imagenet_train-{000001..001281}.tar" # randomized imagenet to have all the class representatives in the first few tar files
     else:
         root_dir_train = "/home/kamil/Dropbox/Current_research/data/imagenet_tar/imagenet_sample_train.tar"
         root_dir_test = "/home/kamil/Dropbox/Current_research/data/imagenet_tar/imagenet_sample_test.tar"
 
-    import tarfile
-    train_tar = tarfile.open(root_dir_train)
-    args.train_len = int(len(train_tar.getmembers())/2) #input, output
-    test_tar = tarfile.open(root_dir_test)
-    args.test_len = int(len(test_tar.getmembers())/2)
+#    import tarfile
+#    test_tar_num = int(root_dir_test[-11:-5])
+#    train_tar_num = int(root_dir_train[-11:-5])
+#    print(train_tar_num)
+#    print(test_tar_num)
+#    args.train_len=0; args.test_len=0
+#    for t in range(1,train_tar_num+1):
+#        print(t)
+#        root_dir_train_single = root_dir_train[:-20]+str(t).zfill(6)+".tar"
+#        train_tar = tarfile.open(root_dir_train_single)
+#        args.train_len += int(len(train_tar.getmembers())/2) #input, output
+#    for t in range(1,test_tar_num+1):
+#        root_dir_test_single = root_dir_test[:-20]+str(t).zfill(6)+".tar"
+#        test_tar = tarfile.open(root_dir_test_single)
+#        args.test_len += int(len(test_tar.getmembers())/2) #input, output
+    
+    args.train_len = 1281166
+    args.test_len = 50000
+    
+    #test_tar = tarfile.open(root_dir_test)
+    #args.test_len = int(len(test_tar.getmembers())/2)
     print("Train: ", args.train_len, "test: ", args.test_len)
 
     train_batch_size = args.batch_size
@@ -170,7 +192,7 @@ if __name__=="__main__":
     args['n_threads'] = 0
     args['batch_size'] = 1
     args = dotdict(args)
-    print(f"Imagenet data at {args.data}")
+    print(f"Imagenet data at {args.dir_data}")
     imagenet = Data(args)
 
     for i, (images, target) in enumerate(imagenet.loader_train):

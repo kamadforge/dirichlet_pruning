@@ -49,7 +49,7 @@ parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
                         ' (default: resnet18)')
 parser.add_argument('-j', '--workers', default=0, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
-parser.add_argument('--epochs', default=90, type=int, metavar='N',
+parser.add_argument('--epochs', default=150, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
@@ -101,7 +101,7 @@ parser.add_argument("--layer", default="None") #module.layer1.0.conv1.weight
 
 #shapley
 parser.add_argument("--shap_method", default="kernel")
-parser.add_argument("--load_file", default=0, type=int) #loads texfile with shapley coalitions
+parser.add_argument("--load_file", default=1, type=int) #loads texfile with shapley coalitions
 parser.add_argument("--k_num", default=None)
 parser.add_argument("--shap_sample_num", default=1, type=int)
 parser.add_argument("--adding", default=0, type=int) #for combin/oracle
@@ -133,27 +133,37 @@ def main():
     restart_list = os.listdir("restart")
     random.shuffle(restart_list)
     create_new=1
+    time.sleep(np.random.uniform(1,20))
     for r in restart_list:
         with open("restart/"+r, "r") as f:
             lines = f.readlines()
         if len(lines)>0:
+            print("line:", lines[-1].strip())
             if lines[-1]=="taken\n":
                 continue
             else:
-                with open("restart/"+r, "a+") as f:
-                    f.write("taken\n")
-                    create_new=0
-                    args.restart_name = r
-                args.resume = lines[-1].strip()
+                if "checkpoint" in lines[-1]: #extra check
+                    with open("restart/"+r, "a+") as f:
+                        f.write("taken\n")
+                        print(r)
+                        print("taken old")
+                        create_new=0
+                        args.restart_name = r
+                    args.resume = lines[-1].strip()
+                    break
+        #if create_new==0:
+        #    break
+    print("create", create_new)
     if create_new:
+        print("in")
         args.restart_name = str(time.time())+".txt"
         with open("restart/" + args.restart_name, "a+") as f:
             f.write("taken\n")
 
 
     if socket.gethostname() == 'kamilblade':
-            args.data = "/home/kamil/Dropbox/Current_research/data/imagenet/imagenet"
-    print(f"Imagenet data at {args.data}")
+            args.dir_data = "/home/kamil/Dropbox/Current_research/data/imagenet/imagenet"
+    print(f"Imagenet data at {args.dir_data}")
         #args.batch_size = 512 #128 1 gpu
 
     if args.seed is not None:
@@ -174,6 +184,8 @@ def main():
         args.world_size = int(os.environ["WORLD_SIZE"])
 
     args.distributed = args.world_size > 1 or args.multiprocessing_distributed
+    
+    print(args)
 
     ngpus_per_node = torch.cuda.device_count()
     if args.multiprocessing_distributed:
@@ -308,8 +320,8 @@ def main_worker(gpu, ngpus_per_node, args):
     cudnn.benchmark = True
 
     # Data loading code
-    traindir = os.path.join(args.data, 'train')
-    valdir = os.path.join(args.data, 'val')
+    traindir = os.path.join(args.dir_data, 'train')
+    valdir = os.path.join(args.dir_data, 'val')
 
     ####
     # normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -452,7 +464,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
     top1 = AverageMeter('Acc@1', ':6.2f')
     top5 = AverageMeter('Acc@5', ':6.2f')
     progress = ProgressMeter(
-        args.train_len,
+        int(args.train_len/args.batch_size),
         [batch_time, data_time, losses, top1, top5],
         prefix="Epoch: [{}]".format(epoch))
 
@@ -518,7 +530,7 @@ def validate(val_loader, model, criterion, args):
     top1 = AverageMeter('Acc@1', ':6.2f')
     top5 = AverageMeter('Acc@5', ':6.2f')
     progress = ProgressMeter(
-        args.test_len,
+        int(args.test_len/args.batch_size),
         [batch_time, losses, top1, top5],
         prefix='Test: ')
 
